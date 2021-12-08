@@ -6,7 +6,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.util.Log;
+
 
 import androidx.annotation.NonNull;
 
@@ -14,6 +14,7 @@ import com.fy.vpn.core.FyVpnService;
 import com.fy.vpn.core.StateEnum;
 
 import java.util.Map;
+import java.util.UUID;
 
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
 import io.flutter.embedding.engine.plugins.activity.ActivityAware;
@@ -52,6 +53,11 @@ public class FyVpnSdkPlugin implements FlutterPlugin, MethodCallHandler, EventCh
         switch (call.method) {
             case "getPlatformVersion":
                 result.success("Android " + android.os.Build.VERSION.RELEASE);
+                break;
+            case "getDeviceId":
+//                String android_id = Secure.getString(getContext().getContentResolver(),
+//                        Secure.ANDROID_ID);
+                result.success(UUID.randomUUID().toString());
                 break;
             case "prepare":
                 Intent prepare = FyVpnService.prepare(activityPluginBinding.getActivity().getApplicationContext());
@@ -110,13 +116,18 @@ public class FyVpnSdkPlugin implements FlutterPlugin, MethodCallHandler, EventCh
 
                 if (eventSink != null) {
 
-                    int stateOrdinal = intent.getIntExtra("state", 0);
+                    int state = intent.getIntExtra("state", 0);
 
-                    state = StateEnum.valueOf(stateOrdinal);
+                    if (state > 0) {
+                        eventSink.success(state);
+                    }
 
-                    eventSink.success(stateOrdinal);
+                    int error = intent.getIntExtra("error", 0);
+
+                    if (error < 0) {
+                        eventSink.success(state);
+                    }
                 }
-
             }
         };
 
