@@ -15,7 +15,8 @@
 #include <flutter/event_stream_handler.h>
 #include <flutter/event_stream_handler_functions.h>
 
-#pragma comment(lib, "rpcrt4.lib")
+// #pragma comment(lib, "rpcrt4.lib")
+#include <rpcdce.h>
 
 #include <map>
 #include <memory>
@@ -217,7 +218,7 @@ namespace
     else if (method_call.method_name().compare("start") == 0)
     {
 
-      auto nodeMap = method_call.arguments;
+      EncodableMap nodeMap = method_call.arguments;
 
       int protocol;
       const char *ip;
