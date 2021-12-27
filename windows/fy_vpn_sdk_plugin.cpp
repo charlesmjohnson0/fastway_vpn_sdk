@@ -16,7 +16,7 @@
 #include <flutter/event_stream_handler_functions.h>
 
 // #pragma comment(lib, "rpcrt4.lib")
-#include <rpcdce.h>
+// #include <rpcdce.h>
 
 #include <map>
 #include <memory>
@@ -187,12 +187,14 @@ namespace
     }
     else if (method_call.method_name().compare("getDeviceId") == 0)
     {
-      UUID uuid;
-      UuidCreate(&uuid);
-      char *str;
-      UuidToStringA(&uuid, (RPC_CSTR *)&str);
-      result->Success(EncodableValue(str));
-      RpcStringFreeA((RPC_CSTR *)&str);
+      // UUID uuid;
+      // UuidCreate(&uuid);
+      // char *str;
+      // UuidToStringA(&uuid, (RPC_CSTR *)&str);
+      // result->Success(EncodableValue(str));
+      // RpcStringFreeA((RPC_CSTR *)&str);
+
+      result->Success(EncodableValue("windows"));
     }
     else if ((method_call.method_name().compare("prepare") == 0) || (method_call.method_name().compare("prepared") == 0))
     {
