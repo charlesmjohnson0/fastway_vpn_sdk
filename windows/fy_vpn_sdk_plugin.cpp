@@ -15,11 +15,13 @@
 #include <flutter/event_stream_handler.h>
 #include <flutter/event_stream_handler_functions.h>
 
-// #pragma comment(lib, "rpcrt4.lib")
+#pragma comment(lib, "rpcrt4.lib")
 
 #include <map>
 #include <memory>
 #include <sstream>
+
+#include <pthread.h>
 
 #include "client_win.h"
 
@@ -65,12 +67,7 @@ namespace
     fy_return_code state_on_change(fy_client_t *client, fy_state_e state)
     {
       this.state = state;
-
-      if (eventSink)
-      {
-        eventSink.Success(EncodableValue(state));
-      }
-
+      eventSink.Success(EncodableValue(state));
       return FY_SUCCESS;
     }
 
@@ -78,12 +75,7 @@ namespace
     {
 
       this.error = err;
-
-      if (eventSink)
-      {
-        eventSink.Success(EncodableValue(err));
-      }
-
+      eventSink.Success(EncodableValue(err));
       return FY_SUCCESS;
     }
 
@@ -116,7 +108,7 @@ namespace
 
         pthread_t thread;
 
-        pthread_create(&thread, NULL, worker, (void *)cli);
+        pthread_create(&thread, NULL, worker_run, (void *)cli);
 
         return 0;
       }
@@ -132,7 +124,7 @@ namespace
     fy_client_t *cli;
     int error;
     int state;
-    EventSink<EncodableValue> &&eventSink = 0;
+    EventSink<EncodableValue> &&eventSink;
   };
 
   // static
@@ -160,8 +152,8 @@ namespace
 
     eventChannel->SetStreamHandler(
         StreamHandlerFunctions(
-            plugin_pointer->StreamHandleOnListen,
-            plugin_pointer->StreamHandleOnCancel));
+            &plugin_pointer->StreamHandleOnListen,
+            &plugin_pointer->StreamHandleOnCancel));
 
     registrar->AddPlugin(move(plugin));
   }
@@ -225,7 +217,7 @@ namespace
     else if (method_call.method_name().compare("start") == 0)
     {
 
-      nodeMap = method_call.arguments;
+      auto nodeMap = method_call.arguments;
 
       int protocol;
       const char *ip;
