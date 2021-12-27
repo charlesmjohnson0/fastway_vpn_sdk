@@ -23,13 +23,16 @@
 
 #include "client_win.h"
 
+using flutter;
+using std;
+
 namespace
 {
 
-  class FyVpnSdkPlugin : public flutter::Plugin
+  class FyVpnSdkPlugin : public Plugin
   {
   public:
-    static void RegisterWithRegistrar(flutter::PluginRegistrarWindows *registrar);
+    static void RegisterWithRegistrar(PluginRegistrarWindows *registrar);
 
     FyVpnSdkPlugin();
 
@@ -38,12 +41,12 @@ namespace
   private:
     // Called when a method is called on this plugin's channel from Dart.
     void HandleMethodCall(
-        const flutter::MethodCall<flutter::EncodableValue> &method_call,
-        std::unique_ptr<flutter::MethodResult<flutter::EncodableValue> > result);
+        const MethodCall<EncodableValue> &method_call,
+        unique_ptr<MethodResult<EncodableValue> > result);
 
-    std::unique_ptr<StreamHandlerError<flutter::EncodableValue>> StreamHandleOnListen(
-          const flutter::EncodableValue *arguments,
-          std::unique_ptr<EventSink<flutter::EncodableValue> > &&events))
+    unique_ptr<StreamHandlerError<EncodableValue>> StreamHandleOnListen(
+          const EncodableValue *arguments,
+          unique_ptr<EventSink<EncodableValue> > &&events))
     {
 
       eventSink = evetns;
@@ -51,10 +54,10 @@ namespace
       return NULL;
     }
 
-    std::unique_ptr<StreamHandlerError<flutter::EncodableValue> > StreamHandleOnCancel(const flutter::EncodableValue *arguments)
+    unique_ptr<StreamHandlerError<EncodableValue> > StreamHandleOnCancel(const EncodableValue *arguments)
     {
 
-      // auto error = std::make_unique<StreamHandlerError<T> >(
+      // auto error = make_unique<StreamHandlerError<T> >(
       //     "error", "No OnCancel handler set", nullptr);
       return NULL;
     }
@@ -65,7 +68,7 @@ namespace
 
       if (eventSink)
       {
-        eventSink.Success(flutter::EncodableValue(state));
+        eventSink.Success(EncodableValue(state));
       }
 
       return FY_SUCCESS;
@@ -78,7 +81,7 @@ namespace
 
       if (eventSink)
       {
-        eventSink.Success(flutter::EncodableValue(err));
+        eventSink.Success(EncodableValue(err));
       }
 
       return FY_SUCCESS;
@@ -129,29 +132,29 @@ namespace
     fy_client_t *cli;
     int error;
     int state;
-    EventSink<flutter::EncodableValue> &&eventSink = 0;
+    EventSink<EncodableValue> &&eventSink = 0;
   };
 
   // static
   void FyVpnSdkPlugin::RegisterWithRegistrar(
-      flutter::PluginRegistrarWindows *registrar)
+      PluginRegistrarWindows *registrar)
   {
     auto channel =
-        std::make_unique<flutter::MethodChannel<flutter::EncodableValue> >(
+        make_unique<MethodChannel<EncodableValue> >(
             registrar->messenger(), "fy_vpn_sdk",
-            &flutter::StandardMethodCodec::GetInstance());
+            &StandardMethodCodec::GetInstance());
 
-    auto plugin = std::make_unique<FyVpnSdkPlugin>();
+    auto plugin = make_unique<FyVpnSdkPlugin>();
 
     channel->SetMethodCallHandler(
         [plugin_pointer = plugin.get()](const auto &call, auto result)
         {
-          plugin_pointer->HandleMethodCall(call, std::move(result));
+          plugin_pointer->HandleMethodCall(call, move(result));
         });
 
-    auto eventChannel = std::make_unique<flutter::EventChannel<flutter::EncodableValue> >(
+    auto eventChannel = make_unique<EventChannel<EncodableValue> >(
         registrar->messenger(), "fy_vpn_states",
-        &flutter::StandardMethodCodec::GetInstance());
+        &StandardMethodCodec::GetInstance());
 
     auto plugin_pointer = plugin.get();
 
@@ -160,7 +163,7 @@ namespace
             plugin_pointer->StreamHandleOnListen,
             plugin_pointer->StreamHandleOnCancel));
 
-    registrar->AddPlugin(std::move(plugin));
+    registrar->AddPlugin(move(plugin));
   }
 
   FyVpnSdkPlugin::FyVpnSdkPlugin() {}
@@ -168,12 +171,12 @@ namespace
   FyVpnSdkPlugin::~FyVpnSdkPlugin() {}
 
   void FyVpnSdkPlugin::HandleMethodCall(
-      const flutter::MethodCall<flutter::EncodableValue> &method_call,
-      std::unique_ptr<flutter::MethodResult<flutter::EncodableValue> > result)
+      const MethodCall<EncodableValue> &method_call,
+      unique_ptr<MethodResult<EncodableValue> > result)
   {
     if (method_call.method_name().compare("getPlatformVersion") == 0)
     {
-      std::ostringstream version_stream;
+      ostringstream version_stream;
       version_stream << "Windows ";
       if (IsWindows10OrGreater())
       {
@@ -187,7 +190,7 @@ namespace
       {
         version_stream << "7";
       }
-      result->Success(flutter::EncodableValue(version_stream.str()));
+      result->Success(EncodableValue(version_stream.str()));
     }
     else if (method_call.method_name().compare("getDeviceId") == 0)
     {
@@ -195,7 +198,7 @@ namespace
       UuidCreate(&uuid);
       char *str;
       UuidToStringA(&uuid, (RPC_CSTR *)&str);
-      result->Success(flutter::EncodableValue(str));
+      result->Success(EncodableValue(str));
       RpcStringFreeA((RPC_CSTR *)&str);
     }
     else if ((method_call.method_name().compare("prepare") == 0) || (method_call.method_name().compare("prepared") == 0))
@@ -204,20 +207,20 @@ namespace
 
       if (res == 0)
       {
-        result->Success(flutter::EncodableValue(true));
+        result->Success(EncodableValue(true));
       }
       else
       {
-        result->Success(flutter::EncodableValue(false));
+        result->Success(EncodableValue(false));
       }
     }
     else if (method_call.method_name().compare("getState") == 0)
     {
-      result->Success(flutter::EncodableValue(fy_get_state(cli)));
+      result->Success(EncodableValue(fy_get_state(cli)));
     }
     else if (method_call.method_name().compare("getError") == 0)
     {
-      result->Success(flutter::EncodableValue(error));
+      result->Success(EncodableValue(error));
     }
     else if (method_call.method_name().compare("start") == 0)
     {
@@ -279,11 +282,11 @@ namespace
 
       if (res == 0)
       {
-        result->Success(flutter::EncodableValue(true));
+        result->Success(EncodableValue(true));
       }
       else
       {
-        result->Success(flutter::EncodableValue(false));
+        result->Success(EncodableValue(false));
       }
     }
     else if (method_call.method_name().compare("stop") == 0)
@@ -291,7 +294,7 @@ namespace
 
       stop();
 
-      result->Success(flutter::EncodableValue(true));
+      result->Success(EncodableValue(true));
     }
     else
     {
@@ -305,6 +308,6 @@ void FyVpnSdkPluginRegisterWithRegistrar(
     FlutterDesktopPluginRegistrarRef registrar)
 {
   FyVpnSdkPlugin::RegisterWithRegistrar(
-      flutter::PluginRegistrarManager::GetInstance()
-          ->GetRegistrar<flutter::PluginRegistrarWindows>(registrar));
+      PluginRegistrarManager::GetInstance()
+          ->GetRegistrar<PluginRegistrarWindows>(registrar));
 }
