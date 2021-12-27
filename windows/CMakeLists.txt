@@ -6,8 +6,8 @@ project(${PROJECT_NAME} LANGUAGES CXX)
 # not be changed
 set(PLUGIN_NAME "fy_vpn_sdk_plugin")
 
-include_directories(C:\workspace\fastway_protocol\include)
-add_subdirectory(C:\workspace\fastway_protocol/ fastway)
+include_directories(C:\\workspace\\fastway_protocol\\include)
+add_subdirectory(C:\\workspace\\fastway_protocol fastway)
 
 add_library(${PLUGIN_NAME} SHARED
   "fy_vpn_sdk_plugin.cpp"
