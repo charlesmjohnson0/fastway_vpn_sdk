@@ -23,8 +23,8 @@
 
 #include "client_win.h"
 
-using flutter;
-using std;
+using namespace flutter;
+using namespace std;
 
 namespace
 {
