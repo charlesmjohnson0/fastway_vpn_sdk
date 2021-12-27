@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 const _channel = MethodChannel('fy_vpn');
@@ -60,8 +61,16 @@ extension fy_error_ext on fy_error {
 }
 
 class FyVpnSdk {
+  static final FyVpnSdk _sdk = FyVpnSdk._internal();
+
+  factory FyVpnSdk() {
+    return _sdk;
+  }
+
   FyVpnSdk._internal() {
+    debugPrint(' sdk init ...');
     _eventChannel.receiveBroadcastStream().listen((event) {
+      debugPrint(' event channel recve : $event');
       if (event > 0) {
         _stateController.sink.add(fy_state_ext.valueOf(event));
       } else if (event < 0) {
@@ -70,37 +79,31 @@ class FyVpnSdk {
     });
   }
 
-  static final FyVpnSdk _sdk = FyVpnSdk._internal();
+  final StreamController<fy_state> _stateController =
+      StreamController<fy_state>.broadcast();
 
-  factory FyVpnSdk() {
-    return _sdk;
-  }
+  final StreamController<fy_error> _errorController =
+      StreamController<fy_error>.broadcast();
 
-  static final StreamController<fy_state> _stateController =
-      StreamController<fy_state>();
+  Stream<fy_error> get onError => _errorController.stream;
+  Stream<fy_state> get onStateChanged => _stateController.stream;
 
-  static final StreamController<fy_error> _errorController =
-      StreamController<fy_error>();
-
-  static Stream<fy_error> get onError => _errorController.stream;
-  static Stream<fy_state> get onStateChanged => _stateController.stream;
-
-  static Future<fy_state> get state async {
+  Future<fy_state> get state async {
     var state = await _channel.invokeMethod<int>('getState');
     return fy_state_ext.valueOf(state!);
   }
 
-  static Future<String?> get platformVersion async {
+  Future<String?> get platformVersion async {
     final String? version = await _channel.invokeMethod('getPlatformVersion');
     return version;
   }
 
-  static Future<String> get deviceId async {
+  Future<String> get deviceId async {
     final String deviceId = await _channel.invokeMethod('getDeviceId');
     return deviceId;
   }
 
-  static Future<bool> prepare() async {
+  Future<bool> prepare() async {
     if (!Platform.isAndroid) {
       return true;
     }
@@ -110,7 +113,7 @@ class FyVpnSdk {
     return preapred;
   }
 
-  static Future<bool> prepared() async {
+  Future<bool> prepared() async {
     if (!Platform.isAndroid) {
       return true;
     }
@@ -120,16 +123,16 @@ class FyVpnSdk {
     return preapred;
   }
 
-  static Future<void> start(parametersMap) async {
+  Future<void> start(parametersMap) async {
     await _channel.invokeMethod('start', parametersMap);
   }
 
-  static Future<void> stop() async {
+  Future<void> stop() async {
     await _channel.invokeMethod('stop');
   }
 
-  static Future<void> startVpnService(String protocol, String serverIp,
-      int serverPort, String username, String password, String? cert) async {
+  Future<void> startVpnService(String protocol, String serverIp, int serverPort,
+      String username, String password, String? cert) async {
     await start({
       'PROTOCOL': protocol,
       'SRV_IP': serverIp,

@@ -25,7 +25,7 @@ rootProject.allprojects {
 apply plugin: 'com.android.library'
 
 android {
-    compileSdkVersion 28
+    compileSdkVersion 31
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
@@ -34,9 +34,12 @@ android {
 
     defaultConfig {
         minSdkVersion 21
-        targetSdkVersion 28
+        targetSdkVersion 31
     }
 }
 dependencies {
-    implementation(name: 'fy-vpn-core-debug', ext: 'aar')
+//    debugImplementation(name: 'fy-vpn-core-debug', ext: 'aar')
+    implementation(name: 'fastway-core-release', ext: 'aar')
+    implementation 'com.google.android.material:material:1.4.0'
+    implementation 'androidx.appcompat:appcompat:1.2.0'
 }

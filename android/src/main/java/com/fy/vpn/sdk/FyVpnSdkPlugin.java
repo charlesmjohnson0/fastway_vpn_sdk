@@ -88,6 +88,9 @@ public class FyVpnSdkPlugin implements FlutterPlugin, MethodCallHandler, EventCh
             case "getState":
                 result.success(this.state.ordinal());
                 break;
+            case "getError":
+                result.success(error);
+                break;
             case "start":
                 Map<String, String> parameters = (Map<String, String>) call.arguments;
                 FyVpnService.startVpnService(this.activityPluginBinding.getActivity(), parameters);
@@ -104,6 +107,7 @@ public class FyVpnSdkPlugin implements FlutterPlugin, MethodCallHandler, EventCh
 
     private BroadcastReceiver receiver = null;
     private StateEnum state = StateEnum.NONE;
+    private int error = 0;
 
 
     protected void registerReceiver() {
@@ -116,16 +120,18 @@ public class FyVpnSdkPlugin implements FlutterPlugin, MethodCallHandler, EventCh
 
                 if (eventSink != null) {
 
-                    int state = intent.getIntExtra("state", 0);
+                    int stateInt = intent.getIntExtra("state", 0);
 
-                    if (state > 0) {
-                        eventSink.success(state);
+                    if (stateInt > 0) {
+                        state = StateEnum.valueOf(stateInt);
+                        eventSink.success(state.ordinal());
                     }
 
-                    int error = intent.getIntExtra("error", 0);
+                    int errorInt = intent.getIntExtra("error", 0);
 
-                    if (error < 0) {
-                        eventSink.success(state);
+                    if (errorInt < 0) {
+                        error = errorInt;
+                        eventSink.success(error);
                     }
                 }
             }
