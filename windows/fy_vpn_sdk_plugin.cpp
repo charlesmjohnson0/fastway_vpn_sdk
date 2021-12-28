@@ -52,7 +52,7 @@ namespace
         unique_ptr<EventSink<EncodableValue> > &&events)
     {
 
-      eventSink = *events;
+      eventSinkPtr = std::move(events);
 
       return NULL;
     }
@@ -67,14 +67,14 @@ namespace
 
     void send_event(int event)
     {
-      (*eventSink).Success(EncodableValue(event));
+      (eventSinkPtr.get())->Success(EncodableValue(event));
     }
 
     fy_return_code state_on_change(fy_client_t *client, fy_state_e state)
     {
-      this.state = state;
+      this->state = state;
 
-      send_event(this.state);
+      send_event(this->state);
 
       return FY_SUCCESS;
     }
@@ -82,7 +82,7 @@ namespace
     fy_return_code on_error(fy_client_t *client, int err)
     {
 
-      this.error = err;
+      this->error = err;
 
       send_event(this->error);
 
@@ -112,11 +112,13 @@ namespace
       if (cli)
       {
 
-        fy_set_on_state_change_cb(cli, &this.state_on_change);
+        fy_set_on_state_change_cb(cli, this->state_on_change);
 
-        fy_set_on_error_cb(cli, &this.on_error);
+        fy_set_on_error_cb(cli, this->on_error);
 
-        thread loop_run_thread(this.worker_run, cli);
+        thread loop_run_thread(this->worker_run, cli);
+
+        loop_run_thread.detach();
 
         return 0;
       }
@@ -132,7 +134,7 @@ namespace
     fy_client_t *cli;
     int error;
     int state;
-    EventSink<EncodableValue> &eventSink = nullptr;
+    unique_ptr<EventSink<EncodableValue>> eventSinkPtr;
   };
 
   // static
@@ -156,18 +158,17 @@ namespace
         registrar->messenger(), "fy_vpn_states",
         &StandardMethodCodec::GetInstance());
 
-    auto plugin_pointer = plugin.get();
-
     eventChannel->SetStreamHandler(
-        StreamHandlerFunctions([plugin_pointer = plugin.get()](
-                                   const EncodableValue *arguments,
-                                   unique_ptr<EventSink<EncodableValue> > &&events)
-                               { plugin_pointer->StreamHandleOnListen(arguments, events); },
-                               [plugin_pointer = plugin.get()](const EncodableValue *arguments)
-                               {
-                                 plugin_pointer->StreamHandleOnCancel(arguments);
-                               }
-                               ));
+        make_unique<StreamHandlerFunctions<EncodableValue> >(
+            [plugin_pointer = plugin.get()](
+                const EncodableValue *arguments,
+                unique_ptr<EventSink<EncodableValue> > &&events)
+            { plugin_pointer->StreamHandleOnListen(arguments, std::move(events)); },
+
+            [plugin_pointer = plugin.get()](const EncodableValue *arguments)
+            {
+              plugin_pointer->StreamHandleOnCancel(arguments);
+            }));
 
     registrar->AddPlugin(move(plugin));
   }
@@ -277,7 +278,7 @@ namespace
 
       if (it != nodeMap.end())
       {
-        password = it.second.c_str();
+        password = std::get<string>(it->second).c_str();
       }
 
       it = nodeMap.find("CERT");
