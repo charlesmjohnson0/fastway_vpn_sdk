@@ -79,15 +79,14 @@ namespace
       return NULL;
     }
 
-    void *worker_run(void *arg)
+    void worker_run(fy_client_t *client)
     {
-      fy_client_t *client = (fy_client_t *)arg;
+      // fy_client_t *client = (fy_client_t *)arg;
 
       fy_run(client);
 
       fy_destroy(client);
 
-      return NULL;
     }
 
     int start(int protocol, const char *ip, int port, const char *user_name, const char *password, const char *cert)
