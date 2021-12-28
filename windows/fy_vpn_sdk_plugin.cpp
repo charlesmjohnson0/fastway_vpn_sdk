@@ -42,7 +42,7 @@ namespace
     virtual ~FyVpnSdkPlugin();
 
   private:
-    // Called when a method is called on this plugin's channel from Dart.
+    // Called when a method is called on this plugin"s channel from Dart.
     void HandleMethodCall(
         const MethodCall<EncodableValue> &method_call,
         unique_ptr<MethodResult<EncodableValue> > result);
@@ -229,21 +229,21 @@ namespace
       const char *password;
       const char *cert;
 
-      auto it = nodeMap.find('PROTOCOL');
+      auto it = nodeMap.find("PROTOCOL");
 
       if (it != nodeMap.end())
       {
         protocol = it.second.LongValue();
       }
 
-      it = nodeMap.find('SRV_IP');
+      it = nodeMap.find("SRV_IP");
 
       if (it != nodeMap.end())
       {
         ip = it.second.c_str();
       }
 
-      it = nodeMap.find('SRV_PORT');
+      it = nodeMap.find("SRV_PORT");
 
       if (it != nodeMap.end())
       {
@@ -252,21 +252,21 @@ namespace
         port = atoi(port_str);
       }
 
-      it = nodeMap.find('USER_NAME');
+      it = nodeMap.find("USER_NAME");
 
       if (it != nodeMap.end())
       {
         user_name = it.second.c_str();
       }
 
-      it = nodeMap.find('PASSWORD');
+      it = nodeMap.find("PASSWORD");
 
       if (it != nodeMap.end())
       {
         password = it.second.c_str();
       }
 
-      it = nodeMap.find('CERT');
+      it = nodeMap.find("CERT");
 
       if (it != nodeMap.end())
       {
