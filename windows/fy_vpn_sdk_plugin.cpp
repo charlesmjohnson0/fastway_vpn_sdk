@@ -32,6 +32,9 @@ using namespace std;
 namespace
 {
 
+  fy_return_code state_on_change(fy_client_t *client, fy_state_e state);
+  fy_return_code on_error(fy_client_t *client, int err);
+
   class FyVpnSdkPlugin : public Plugin
   {
   public:
@@ -172,11 +175,10 @@ namespace
             [plugin_pointer = plugin.get()](
                 const EncodableValue *arguments,
                 unique_ptr<EventSink<EncodableValue> > &&events)
-            { plugin_pointer->StreamHandleOnListen(arguments, std::move(events)); },
-
+            { return plugin_pointer->StreamHandleOnListen(arguments, std::move(events)); },
             [plugin_pointer = plugin.get()](const EncodableValue *arguments)
             {
-              plugin_pointer->StreamHandleOnCancel(arguments);
+              return plugin_pointer->StreamHandleOnCancel(arguments);
             }));
 
     registrar->AddPlugin(move(plugin));
@@ -257,7 +259,7 @@ namespace
 
       if (it != nodeMap.end())
       {
-        protocol = it->second.LongValue();
+        protocol = std::get<int32_t>(it->second);
       }
 
       it = nodeMap.find("SRV_IP");
