@@ -131,7 +131,7 @@ namespace
 
     FyVpnSdkPlugin *plugin = (FyVpnSdkPlugin *)client->data;
 
-    plugin->send_event(plugin->state);
+    plugin->send_event(state);
 
     return FY_SUCCESS;
   }
@@ -141,7 +141,7 @@ namespace
 
     FyVpnSdkPlugin *plugin = (FyVpnSdkPlugin *)client->data;
 
-    plugin->send_event(plugin->error);
+    plugin->send_event(err);
 
     return FY_SUCCESS;
   }
