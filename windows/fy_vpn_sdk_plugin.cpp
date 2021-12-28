@@ -34,6 +34,7 @@ namespace
 
   fy_return_code state_on_change(fy_client_t *client, fy_state_e state);
   fy_return_code on_error(fy_client_t *client, int err);
+  void worker_run(fy_client_t *client);
 
   class FyVpnSdkPlugin : public Plugin
   {
@@ -79,37 +80,27 @@ namespace
       return NULL;
     }
 
-    void worker_run(fy_client_t *client)
-    {
-      // fy_client_t *client = (fy_client_t *)arg;
-
-      fy_run(client);
-
-      fy_destroy(client);
-
-    }
-
     int start(int protocol, const char *ip, int port, const char *user_name, const char *password, const char *cert)
     {
-      if (cli)
+      if (this->cli)
       {
-        fy_stop(cli);
+        fy_stop(this->cli);
       }
 
-      cli = fy_start(protocol, ip, port, user_name, password, cert);
+      this->cli = fy_start(protocol, ip, port, user_name, password, cert);
 
-      if (cli)
+      if (this->cli)
       {
 
-        cli->data = this;
+        this->cli->data = this;
 
-        fy_set_on_state_change_cb(cli, state_on_change);
+        fy_set_on_state_change_cb(this->cli, state_on_change);
 
-        fy_set_on_error_cb(cli, on_error);
+        fy_set_on_error_cb(this->cli, on_error);
 
-        thread loop_run_thread(&FyVpnSdkPlugin::worker_run, cli);
+        thread t(&worker_run, this->cli);
 
-        loop_run_thread.detach();
+        t.detach();
 
         return 0;
       }
@@ -146,6 +137,15 @@ namespace
     plugin->send_event(err);
 
     return FY_SUCCESS;
+  }
+
+  void worker_run(fy_client_t *client)
+  {
+    // fy_client_t *client = (fy_client_t *)arg;
+
+    fy_run(client);
+
+    fy_destroy(client);
   }
 
   // static
