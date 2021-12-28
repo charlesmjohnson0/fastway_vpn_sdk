@@ -41,6 +41,20 @@ namespace
 
     virtual ~FyVpnSdkPlugin();
 
+    void send_event(int event)
+    {
+      if (event >= 0)
+      {
+        this->state = event;
+      }
+      else
+      {
+        this->error = event;
+      }
+      
+      (eventSinkPtr.get())->Success(EncodableValue(event));
+    }
+
   private:
     // Called when a method is called on this plugin"s channel from Dart.
     void HandleMethodCall(
@@ -60,11 +74,6 @@ namespace
     unique_ptr<StreamHandlerError<EncodableValue> > StreamHandleOnCancel(const EncodableValue *arguments)
     {
       return NULL;
-    }
-
-    void send_event(int event)
-    {
-      (eventSinkPtr.get())->Success(EncodableValue(event));
     }
 
     void *worker_run(void *arg)
