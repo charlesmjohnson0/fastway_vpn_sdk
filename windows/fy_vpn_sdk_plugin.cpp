@@ -49,7 +49,7 @@ namespace
 
     unique_ptr<StreamHandlerError<EncodableValue> > StreamHandleOnListen(
         const EncodableValue *arguments,
-        unique_ptr<EventSink<EncodableValue> > &&events)
+        unique_ptr<EventSink<EncodableValue>> &&events)
     {
 
       eventSink = evetns;
@@ -103,9 +103,9 @@ namespace
       if (cli)
       {
 
-        fy_set_on_state_change_cb(cli, this.state_on_change);
+        fy_set_on_state_change_cb(cli, &this.state_on_change);
 
-        fy_set_on_error_cb(cli, this.on_error);
+        fy_set_on_error_cb(cli, &this.on_error);
 
         thread loop_run(this.worker_run, cli);
 
@@ -123,7 +123,7 @@ namespace
     fy_client_t *cli;
     int error;
     int state;
-    EventSink<EncodableValue> &&eventSink = nullptr;
+    unique_ptr<EventSink<EncodableValue>> &&eventSink = nullptr;
   };
 
   // static
