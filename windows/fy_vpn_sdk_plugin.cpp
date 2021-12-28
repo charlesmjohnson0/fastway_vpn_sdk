@@ -47,9 +47,9 @@ namespace
         const MethodCall<EncodableValue> &method_call,
         unique_ptr<MethodResult<EncodableValue> > result);
 
-    unique_ptr<StreamHandlerError<EncodableValue>> StreamHandleOnListen(
-          const EncodableValue *arguments,
-          unique_ptr<EventSink<EncodableValue> > &&events))
+    unique_ptr<StreamHandlerError<EncodableValue> > StreamHandleOnListen(
+        const EncodableValue *arguments,
+        unique_ptr<EventSink<EncodableValue> > &&events)
     {
 
       eventSink = evetns;
@@ -103,11 +103,11 @@ namespace
       if (cli)
       {
 
-        fy_set_on_state_change_cb(cli, state_on_change);
+        fy_set_on_state_change_cb(cli, this.state_on_change);
 
-        fy_set_on_error_cb(cli, on_error);
+        fy_set_on_error_cb(cli, this.on_error);
 
-        thread loop_run(worker_run,cli);
+        thread loop_run(this.worker_run, cli);
 
         return 0;
       }
@@ -123,7 +123,7 @@ namespace
     fy_client_t *cli;
     int error;
     int state;
-    EventSink<EncodableValue> &&eventSink;
+    EventSink<EncodableValue> &&eventSink = nullptr;
   };
 
   // static
@@ -151,8 +151,8 @@ namespace
 
     eventChannel->SetStreamHandler(
         StreamHandlerFunctions(
-            &plugin_pointer->StreamHandleOnListen,
-            &plugin_pointer->StreamHandleOnCancel));
+            plugin_pointer->StreamHandleOnListen,
+            plugin_pointer->StreamHandleOnCancel));
 
     registrar->AddPlugin(move(plugin));
   }
@@ -218,7 +218,7 @@ namespace
     else if (method_call.method_name().compare("start") == 0)
     {
 
-      EncodableMap nodeMap = method_call.arguments;
+      EncodableMap *nodeMap = &(method_call.arguments);
 
       int protocol;
       const char *ip;
@@ -227,44 +227,44 @@ namespace
       const char *password;
       const char *cert;
 
-      auto it = nodeMap.find("PROTOCOL");
+      auto it = *nodeMap.find("PROTOCOL");
 
       if (it != nodeMap.end())
       {
         protocol = it.second.LongValue();
       }
 
-      it = nodeMap.find("SRV_IP");
+      it = *nodeMap.find("SRV_IP");
 
-      if (it != nodeMap.end())
+      if (it != *nodeMap.end())
       {
         ip = it.second.c_str();
       }
 
-      it = nodeMap.find("SRV_PORT");
+      it = *nodeMap.find("SRV_PORT");
 
-      if (it != nodeMap.end())
+      if (it != *nodeMap.end())
       {
         const char *port_str = it.second.c_str();
 
         port = atoi(port_str);
       }
 
-      it = nodeMap.find("USER_NAME");
+      it = *nodeMap.find("USER_NAME");
 
       if (it != nodeMap.end())
       {
         user_name = it.second.c_str();
       }
 
-      it = nodeMap.find("PASSWORD");
+      it = *nodeMap.find("PASSWORD");
 
       if (it != nodeMap.end())
       {
         password = it.second.c_str();
       }
 
-      it = nodeMap.find("CERT");
+      it = *nodeMap.find("CERT");
 
       if (it != nodeMap.end())
       {
