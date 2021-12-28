@@ -59,9 +59,6 @@ namespace
 
     unique_ptr<StreamHandlerError<EncodableValue> > StreamHandleOnCancel(const EncodableValue *arguments)
     {
-
-      // auto error = make_unique<StreamHandlerError<T> >(
-      //     "error", "No OnCancel handler set", nullptr);
       return NULL;
     }
 
@@ -72,9 +69,12 @@ namespace
 
     fy_return_code state_on_change(fy_client_t *client, fy_state_e state)
     {
-      this->state = state;
 
-      send_event(this->state);
+      FyVpnSdkPlugin *plugin = (FyVpnSdkPlugin *)client->data;
+
+      plugin->state = state;
+
+      plugin->send_event(plugin->state);
 
       return FY_SUCCESS;
     }
@@ -82,9 +82,11 @@ namespace
     fy_return_code on_error(fy_client_t *client, int err)
     {
 
-      this->error = err;
+      FyVpnSdkPlugin *plugin = (FyVpnSdkPlugin *)client->data;
 
-      send_event(this->error);
+      plugin->error = err;
+
+      plugin->send_event(plugin->error);
 
       return FY_SUCCESS;
     }
@@ -112,11 +114,13 @@ namespace
       if (cli)
       {
 
-        fy_set_on_state_change_cb(cli, this->state_on_change);
+        cli->data = this;
 
-        fy_set_on_error_cb(cli, this->on_error);
+        fy_set_on_state_change_cb(cli, &FyVpnSdkPlugin::state_on_change);
 
-        thread loop_run_thread(this->worker_run, cli);
+        fy_set_on_error_cb(cli, &FyVpnSdkPlugin::on_error);
+
+        thread loop_run_thread(&FyVpnSdkPlugin::worker_run, cli);
 
         loop_run_thread.detach();
 
@@ -133,8 +137,8 @@ namespace
 
     fy_client_t *cli;
     int error;
-    int state;
-    unique_ptr<EventSink<EncodableValue>> eventSinkPtr;
+    fy_state_e state;
+    unique_ptr<EventSink<EncodableValue> > eventSinkPtr;
   };
 
   // static
