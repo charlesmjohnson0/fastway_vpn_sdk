@@ -67,30 +67,6 @@ namespace
       (eventSinkPtr.get())->Success(EncodableValue(event));
     }
 
-    fy_return_code state_on_change(fy_client_t *client, fy_state_e state)
-    {
-
-      FyVpnSdkPlugin *plugin = (FyVpnSdkPlugin *)client->data;
-
-      plugin->state = state;
-
-      plugin->send_event(plugin->state);
-
-      return FY_SUCCESS;
-    }
-
-    fy_return_code on_error(fy_client_t *client, int err)
-    {
-
-      FyVpnSdkPlugin *plugin = (FyVpnSdkPlugin *)client->data;
-
-      plugin->error = err;
-
-      plugin->send_event(plugin->error);
-
-      return FY_SUCCESS;
-    }
-
     void *worker_run(void *arg)
     {
       fy_client_t *client = (fy_client_t *)arg;
@@ -116,9 +92,9 @@ namespace
 
         cli->data = this;
 
-        fy_set_on_state_change_cb(cli, &FyVpnSdkPlugin::state_on_change);
+        fy_set_on_state_change_cb(cli, state_on_change);
 
-        fy_set_on_error_cb(cli, &FyVpnSdkPlugin::on_error);
+        fy_set_on_error_cb(cli, on_error);
 
         thread loop_run_thread(&FyVpnSdkPlugin::worker_run, cli);
 
@@ -140,6 +116,30 @@ namespace
     fy_state_e state;
     unique_ptr<EventSink<EncodableValue> > eventSinkPtr;
   };
+
+  fy_return_code state_on_change(fy_client_t *client, fy_state_e state)
+  {
+
+    FyVpnSdkPlugin *plugin = (FyVpnSdkPlugin *)client->data;
+
+    plugin->state = state;
+
+    plugin->send_event(plugin->state);
+
+    return FY_SUCCESS;
+  }
+
+  fy_return_code on_error(fy_client_t *client, int err)
+  {
+
+    FyVpnSdkPlugin *plugin = (FyVpnSdkPlugin *)client->data;
+
+    plugin->error = err;
+
+    plugin->send_event(plugin->error);
+
+    return FY_SUCCESS;
+  }
 
   // static
   void FyVpnSdkPlugin::RegisterWithRegistrar(
