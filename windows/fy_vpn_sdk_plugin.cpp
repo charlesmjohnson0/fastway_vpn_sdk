@@ -159,9 +159,15 @@ namespace
     auto plugin_pointer = plugin.get();
 
     eventChannel->SetStreamHandler(
-        StreamHandlerFunctions(
-            plugin_pointer->StreamHandleOnListen,
-            plugin_pointer->StreamHandleOnCancel));
+        StreamHandlerFunctions([plugin_pointer = plugin.get()](
+                                   const EncodableValue *arguments,
+                                   unique_ptr<EventSink<EncodableValue> > &&events)
+                               { plugin_pointer->StreamHandleOnListen(arguments, events); },
+                               [plugin_pointer = plugin.get()](const EncodableValue *arguments)
+                               {
+                                 plugin_pointer->StreamHandleOnCancel(arguments);
+                               }
+                               ));
 
     registrar->AddPlugin(move(plugin));
   }
@@ -227,7 +233,8 @@ namespace
     else if (method_call.method_name().compare("start") == 0)
     {
 
-      EncodableMap *nodeMap = &(method_call.arguments);
+      EncodableValue arguments = method_call.arguments();
+      EncodableMap nodeMap = std::get<EncodableMap>(arguments);
 
       int protocol;
       const char *ip;
@@ -236,48 +243,48 @@ namespace
       const char *password;
       const char *cert;
 
-      auto it = *nodeMap.find("PROTOCOL");
+      auto it = nodeMap.find("PROTOCOL");
 
       if (it != nodeMap.end())
       {
-        protocol = it.second.LongValue();
+        protocol = it->second.LongValue();
       }
 
-      it = *nodeMap.find("SRV_IP");
+      it = nodeMap.find("SRV_IP");
 
-      if (it != *nodeMap.end())
+      if (it != nodeMap.end())
       {
-        ip = it.second.c_str();
+        ip = std::get<string>(it->second).c_str();
       }
 
-      it = *nodeMap.find("SRV_PORT");
+      it = nodeMap.find("SRV_PORT");
 
-      if (it != *nodeMap.end())
+      if (it != nodeMap.end())
       {
-        const char *port_str = it.second.c_str();
+        const char *port_str = std::get<string>(it->second).c_str();
 
         port = atoi(port_str);
       }
 
-      it = *nodeMap.find("USER_NAME");
+      it = nodeMap.find("USER_NAME");
 
       if (it != nodeMap.end())
       {
-        user_name = it.second.c_str();
+        user_name = std::get<string>(it->second).c_str();
       }
 
-      it = *nodeMap.find("PASSWORD");
+      it = nodeMap.find("PASSWORD");
 
       if (it != nodeMap.end())
       {
         password = it.second.c_str();
       }
 
-      it = *nodeMap.find("CERT");
+      it = nodeMap.find("CERT");
 
       if (it != nodeMap.end())
       {
-        cert = it.second.c_str();
+        cert = std::get<string>(it->second).c_str();
       }
 
       int res = start(protocol, ip, port, user_name, password, cert);
