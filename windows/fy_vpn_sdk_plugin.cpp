@@ -22,7 +22,7 @@
 #include <memory>
 #include <sstream>
 
-#include <thread.h>
+#include <thread>
 
 #include "client_win.h"
 
