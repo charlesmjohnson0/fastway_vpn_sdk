@@ -122,7 +122,7 @@ namespace
 
     fy_client_t *cli;
     int error;
-    fy_state_e state;
+    int state;
     unique_ptr<EventSink<EncodableValue> > eventSinkPtr;
   };
 
