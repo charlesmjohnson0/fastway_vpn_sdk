@@ -22,7 +22,7 @@
 #include <memory>
 #include <sstream>
 
-#include <pthread.h>
+#include <thread.h>
 
 #include "client_win.h"
 
@@ -107,9 +107,7 @@ namespace
 
         fy_set_on_error_cb(cli, on_error);
 
-        pthread_t thread;
-
-        pthread_create(&thread, NULL, worker_run, (void *)cli);
+        thread loop_run(worker_run,cli);
 
         return 0;
       }
