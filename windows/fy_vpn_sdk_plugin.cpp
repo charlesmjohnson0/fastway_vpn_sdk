@@ -51,7 +51,7 @@ namespace
       {
         this->error = event;
       }
-      
+
       (eventSinkPtr.get())->Success(EncodableValue(event));
     }
 
@@ -131,8 +131,6 @@ namespace
 
     FyVpnSdkPlugin *plugin = (FyVpnSdkPlugin *)client->data;
 
-    plugin->state = state;
-
     plugin->send_event(plugin->state);
 
     return FY_SUCCESS;
@@ -142,8 +140,6 @@ namespace
   {
 
     FyVpnSdkPlugin *plugin = (FyVpnSdkPlugin *)client->data;
-
-    plugin->error = err;
 
     plugin->send_event(plugin->error);
 
