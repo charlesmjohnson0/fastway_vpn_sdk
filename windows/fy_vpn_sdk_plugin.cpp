@@ -247,12 +247,12 @@ namespace
       EncodableValue arguments = method_call.arguments();
       EncodableMap nodeMap = std::get<EncodableMap>(arguments);
 
-      int protocol;
-      const char *ip;
-      int port;
-      const char *user_name;
-      const char *password;
-      const char *cert;
+      int protocol = 0;
+      char *ip = NULL;
+      int port = 0;
+      char *user_name = NULL;
+      char *password = NULL;
+      char *cert = NULL;
 
       auto it = nodeMap.find("PROTOCOL");
 
