@@ -265,7 +265,7 @@ namespace
 
       if (it != nodeMap.end())
       {
-        ip = std::get<string>(it->second).c_str();
+        ip = (char *)std::get<string>(it->second).c_str();
       }
 
       it = nodeMap.find("SRV_PORT");
@@ -281,21 +281,21 @@ namespace
 
       if (it != nodeMap.end())
       {
-        user_name = std::get<string>(it->second).c_str();
+        user_name = (char *)std::get<string>(it->second).c_str();
       }
 
       it = nodeMap.find("PASSWORD");
 
       if (it != nodeMap.end())
       {
-        password = std::get<string>(it->second).c_str();
+        password = (char *)std::get<string>(it->second).c_str();
       }
 
       it = nodeMap.find("CERT");
 
       if (it != nodeMap.end())
       {
-        cert = std::get<string>(it->second).c_str();
+        cert = (char *)std::get<string>(it->second).c_str();
       }
 
       int res = start(protocol, ip, port, user_name, password, cert);
