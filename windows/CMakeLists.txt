@@ -4,7 +4,7 @@ project(${PROJECT_NAME} LANGUAGES CXX)
 
 # This value is used when generating builds using this plugin, so it must
 # not be changed
-set(PLUGIN_NAME "fastway_sdk")
+set(PLUGIN_NAME "fy_vpn_sdk_plugin")
 
 add_compile_definitions(WIN32_LEAN_AND_MEAN)
 add_compile_definitions(_WIN32_WINNT=0x0602)
