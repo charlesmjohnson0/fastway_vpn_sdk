@@ -12,7 +12,7 @@ add_compile_definitions(_WIN32_WINNT=0x0602)
 set(LIB_FASTWAY C:\\workspace\\fastway_protocol\\)
 
 include_directories(${LIB_FASTWAY}include)
-add_subdirectory(${LIB_FASTWAY} fastway_core)
+add_subdirectory(${LIB_FASTWAY} fastway_protocol)
 
 add_library(${PLUGIN_NAME} SHARED
   "fy_vpn_sdk_plugin.cpp"
