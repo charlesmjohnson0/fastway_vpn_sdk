@@ -56,7 +56,10 @@ namespace
         this->error = event;
       }
 
-      (eventSinkPtr.get())->Success(EncodableValue(event));
+      if (this->eventSinkPtr.get())
+      {
+        (this->eventSinkPtr.get())->Success(EncodableValue(event));
+      }
     }
 
   private:
@@ -70,14 +73,17 @@ namespace
         unique_ptr<EventSink<EncodableValue> > &&events)
     {
 
-      eventSinkPtr = std::move(events);
+      this->eventSinkPtr = std::move(events);
 
-      return NULL;
+      return nullptr;
     }
 
     unique_ptr<StreamHandlerError<EncodableValue> > StreamHandleOnCancel(const EncodableValue *arguments)
     {
-      return NULL;
+
+      this->eventSinkPtr.release();
+
+      return nullptr;
     }
 
     int start(int protocol, const char *ip, int port, const char *user_name, const char *password, const char *cert)
@@ -110,12 +116,12 @@ namespace
 
     int stop()
     {
-      return fy_stop(cli);
+      return fy_stop(this->cli);
     }
 
     fy_client_t *cli;
-    int error;
-    int state;
+    int error = 0;
+    int state = 0;
     unique_ptr<EventSink<EncodableValue> > eventSinkPtr;
   };
 
@@ -124,7 +130,7 @@ namespace
 
     FyVpnSdkPlugin *plugin = (FyVpnSdkPlugin *)client->data;
 
-    plugin->send_event(state);
+    plugin->send_event(fy_get_state(client));
 
     return FY_SUCCESS;
   }
@@ -222,16 +228,7 @@ namespace
     }
     else if ((method_call.method_name().compare("prepare") == 0) || (method_call.method_name().compare("prepared") == 0))
     {
-      int res = fy_init();
-
-      if (res == 0)
-      {
-        result->Success(EncodableValue(true));
-      }
-      else
-      {
-        result->Success(EncodableValue(false));
-      }
+      result->Success(EncodableValue(fy_init() == 0));
     }
     else if (method_call.method_name().compare("getState") == 0)
     {
@@ -244,8 +241,7 @@ namespace
     else if (method_call.method_name().compare("start") == 0)
     {
 
-      EncodableValue arguments = method_call.arguments();
-      EncodableMap nodeMap = std::get<EncodableMap>(arguments);
+      const auto *arguments = std::get<EncodableMap>(method_call.arguments());
 
       int protocol = 0;
       char *ip = NULL;
@@ -254,81 +250,74 @@ namespace
       char *password = NULL;
       char *cert = NULL;
 
-      auto it = nodeMap.find("PROTOCOL");
+      auto it = arguments->find("PROTOCOL");
 
-      if (it != nodeMap.end())
+      if (it != arguments->end())
       {
         string &protocol_str = std::get<string>(it->second);
 
         if (protocol_str.compare("UDP") == 0)
         {
-          protocol = FY_CONN_PROTOCOL_UDP; // 1
+          protocol = 1; // FY_CONN_PROTOCOL_UDP; // 1
         }
         else if (protocol_str.compare("TCP") == 0)
         {
-          protocol = FY_CONN_PROTOCOL_TCP; // 2
+          protocol = 2; //FY_CONN_PROTOCOL_TCP; // 2
         }
         else if (protocol_str.compare("TLS") == 0)
         {
-          protocol = FY_CONN_PROTOCOL_TLS; // 3
+          protocol = 3; //FY_CONN_PROTOCOL_TLS; // 3
         }
         else if (protocol_str.compare("DTLS") == 0)
         {
-          protocol = FY_CONN_PROTOCOL_DTLS; // 4
+          protocol = 4; //FY_CONN_PROTOCOL_DTLS; // 4
         }
         else
         {
-          protocol = FY_CONN_PROTOCOL_DTLS;
+          protocol = 4; //FY_CONN_PROTOCOL_DTLS;
         }
       }
 
-      it = nodeMap.find("SRV_IP");
+      it = arguments->find("SRV_IP");
 
-      if (it != nodeMap.end())
+      if (it != arguments->end())
       {
         ip = (char *)std::get<string>(it->second).c_str();
       }
 
-      it = nodeMap.find("SRV_PORT");
+      it = arguments->find("SRV_PORT");
 
-      if (it != nodeMap.end())
+      if (it != arguments->end())
       {
         const char *port_str = std::get<string>(it->second).c_str();
 
         port = atoi(port_str);
       }
 
-      it = nodeMap.find("USER_NAME");
+      it = arguments->find("USER_NAME");
 
-      if (it != nodeMap.end())
+      if (it != arguments->end())
       {
         user_name = (char *)std::get<string>(it->second).c_str();
       }
 
-      it = nodeMap.find("PASSWORD");
+      it = arguments->find("PASSWORD");
 
-      if (it != nodeMap.end())
+      if (it != arguments->end())
       {
         password = (char *)std::get<string>(it->second).c_str();
       }
 
-      it = nodeMap.find("CERT");
+      it = arguments->find("CERT");
 
-      if (it != nodeMap.end())
+      if (it != arguments->end())
       {
         cert = (char *)std::get<string>(it->second).c_str();
       }
 
       int res = start(protocol, ip, port, user_name, password, cert);
 
-      if (res == 0)
-      {
-        result->Success(EncodableValue(true));
-      }
-      else
-      {
-        result->Success(EncodableValue(false));
-      }
+      result->Success(EncodableValue(res == 0));
     }
     else if (method_call.method_name().compare("stop") == 0)
     {

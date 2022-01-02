@@ -104,23 +104,23 @@ class FyVpnSdk {
   }
 
   Future<bool> prepare() async {
-    // if (!Platform.isAndroid) {
-    //   return true;
-    // }
-
     var preapred = await _channel.invokeMethod('prepare');
 
-    return preapred;
+    if (preapred == true || preapred == 1) {
+      return true;
+    }
+
+    return false;
   }
 
   Future<bool> prepared() async {
-    // if (!Platform.isAndroid) {
-    //   return true;
-    // }
-
     var preapred = await _channel.invokeMethod('prepared');
 
-    return preapred;
+    if (preapred == true || preapred == 1) {
+      return true;
+    }
+
+    return false;
   }
 
   Future<void> start(parametersMap) async {

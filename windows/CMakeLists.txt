@@ -9,7 +9,7 @@ set(PLUGIN_NAME "fy_vpn_sdk_plugin")
 add_compile_definitions(WIN32_LEAN_AND_MEAN)
 add_compile_definitions(_WIN32_WINNT=0x0602)
 
-set(LIB_FASTWAY C:\\workspace\\fastway_protocol\\)
+set(LIB_FASTWAY D:\\workspace\\fastway_protocol\\)
 
 include_directories(${LIB_FASTWAY}include)
 add_subdirectory(${LIB_FASTWAY} fastway_protocol)
