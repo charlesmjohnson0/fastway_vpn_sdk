@@ -258,7 +258,28 @@ namespace
 
       if (it != nodeMap.end())
       {
-        protocol = std::get<int32_t>(it->second);
+        const char *protocol_str = (char *)std::get<string>(it->second).c_str();
+
+        if (strcasecmp(protocol_str, "UDP") == 0)
+        {
+          protocol = FY_CONN_PROTOCOL_UDP; // 1
+        }
+        else if (strcasecmp(protocol_str, "TCP") == 0)
+        {
+          protocol = FY_CONN_PROTOCOL_TCP; // 2
+        }
+        else if (strcasecmp(protocol_str, "TLS") == 0)
+        {
+          protocol = FY_CONN_PROTOCOL_TLS; // 3
+        }
+        else if (strcasecmp(protocol_str, "DTLS") == 0)
+        {
+          protocol = FY_CONN_PROTOCOL_DTLS; // 4
+        }
+        else
+        {
+          protocol = FY_CONN_PROTOCOL_DTLS;
+        }
       }
 
       it = nodeMap.find("SRV_IP");
