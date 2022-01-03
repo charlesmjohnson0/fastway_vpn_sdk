@@ -36,6 +36,49 @@ namespace
   fy_return_code on_error(fy_client_t *client, int err);
   void worker_run(fy_client_t *client);
 
+  template <typename T = EncodableValue>
+
+  class FyVpnSdkPluginStreamHandler : public StreamHandler<T>
+  {
+
+  public:
+    FyVpnSdkPluginStreamHandler() = default;
+
+    virtual ~FyVpnSdkPluginStreamHandler() = default;
+
+    void send(int event)
+    {
+      if (uint64_t(this) == 0xddddddddddddddddul)
+        return;
+
+      if (m_sink.get())
+      {
+        m_sink.get()->Success(EncodableValue(event));
+      }
+    }
+
+  protected:
+    unique_ptr<StreamHandlerError<T> > OnListenInternal(const T *arguments, unique_ptr<EventSink<EncodableValue> > &&events) override
+    {
+
+      this->m_sink = move(events);
+
+      return nullptr;
+    }
+
+    unique_ptr<StreamHandlerError<T> > OnCancelInternal(const T *arguments) override
+    {
+
+      this->m_sink.release();
+
+      return nullptr;
+    }
+
+  private:
+    unique_ptr<EventSink<T> > m_sink;
+
+  }
+
   class FyVpnSdkPlugin : public Plugin
   {
   public:
@@ -44,6 +87,8 @@ namespace
     FyVpnSdkPlugin();
 
     virtual ~FyVpnSdkPlugin();
+
+    FyVpnSdkPluginStreamHandler<> *m_handler = nullptr;
 
     void send_event(int event)
     {
@@ -56,10 +101,7 @@ namespace
         this->error = event;
       }
 
-      if (this->eventSinkPtr.get())
-      {
-        (this->eventSinkPtr.get())->Success(EncodableValue(event));
-      }
+      this->m_handler->send(event);
     }
 
   private:
@@ -68,23 +110,23 @@ namespace
         const MethodCall<EncodableValue> &method_call,
         unique_ptr<MethodResult<EncodableValue> > result);
 
-    unique_ptr<StreamHandlerError<EncodableValue> > StreamHandleOnListen(
-        const EncodableValue *arguments,
-        unique_ptr<EventSink<EncodableValue> > &&events)
-    {
+    // unique_ptr<StreamHandlerError<EncodableValue> > StreamHandleOnListen(
+    //     const EncodableValue *arguments,
+    //     unique_ptr<EventSink<EncodableValue> > &&events)
+    // {
 
-      this->eventSinkPtr = std::move(events);
+    //   this->eventSinkPtr = std::move(events);
 
-      return nullptr;
-    }
+    //   return nullptr;
+    // }
 
-    unique_ptr<StreamHandlerError<EncodableValue> > StreamHandleOnCancel(const EncodableValue *arguments)
-    {
+    // unique_ptr<StreamHandlerError<EncodableValue> > StreamHandleOnCancel(const EncodableValue *arguments)
+    // {
 
-      this->eventSinkPtr.release();
+    //   this->eventSinkPtr.release();
 
-      return nullptr;
-    }
+    //   return nullptr;
+    // }
 
     int start(int protocol, const char *ip, int port, const char *user_name, const char *password, const char *cert)
     {
@@ -100,9 +142,9 @@ namespace
 
         this->cli->data = this;
 
-        fy_set_on_state_change_cb(this->cli, state_on_change);
+        fy_set_on_state_change_cb(this->cli, &state_on_change);
 
-        fy_set_on_error_cb(this->cli, on_error);
+        fy_set_on_error_cb(this->cli, &on_error);
 
         thread t(&worker_run, this->cli);
 
@@ -119,10 +161,12 @@ namespace
       return fy_stop(this->cli);
     }
 
-    fy_client_t *cli;
+    fy_client_t *cli = NULL;
     int error = 0;
     int state = 0;
-    unique_ptr<EventSink<EncodableValue> > eventSinkPtr;
+    // unique_ptr<EventSink<EncodableValue> > eventSinkPtr;
+    unique_ptr<MethodChannel<EncodableValue> > m_method_channel;
+    unique_ptr<EventChannel<EncodableValue> > m_event_channel;
   };
 
   fy_return_code state_on_change(fy_client_t *client, fy_state_e state)
@@ -158,33 +202,41 @@ namespace
   void FyVpnSdkPlugin::RegisterWithRegistrar(
       PluginRegistrarWindows *registrar)
   {
-    auto channel =
-        make_unique<MethodChannel<EncodableValue> >(
-            registrar->messenger(), "fy_vpn_sdk",
-            &StandardMethodCodec::GetInstance());
 
     auto plugin = make_unique<FyVpnSdkPlugin>();
 
-    channel->SetMethodCallHandler(
+    plugin->m_method_channel =
+        make_unique<MethodChannel<EncodableValue> >(
+            registrar->messenger(), "fy_vpn",
+            &StandardMethodCodec::GetInstance());
+
+    plugin->m_method_channel->SetMethodCallHandler(
         [plugin_pointer = plugin.get()](const auto &call, auto result)
         {
           plugin_pointer->HandleMethodCall(call, move(result));
         });
 
-    auto eventChannel = make_unique<EventChannel<EncodableValue> >(
+    plugin->m_event_channel = make_unique<EventChannel<EncodableValue> >(
         registrar->messenger(), "fy_vpn_states",
         &StandardMethodCodec::GetInstance());
 
-    eventChannel->SetStreamHandler(
-        make_unique<StreamHandlerFunctions<EncodableValue> >(
-            [plugin_pointer = plugin.get()](
-                const EncodableValue *arguments,
-                unique_ptr<EventSink<EncodableValue> > &&events)
-            { return plugin_pointer->StreamHandleOnListen(arguments, std::move(events)); },
-            [plugin_pointer = plugin.get()](const EncodableValue *arguments)
-            {
-              return plugin_pointer->StreamHandleOnCancel(arguments);
-            }));
+    plugin->m_handler = new FyVpnSdkPluginStreamHandler<>();
+
+    auto _obj_stm_handle = static_cast<StreamHandler<EncodableValue> *>(plugin->m_handler);
+    unique_ptr<StreamHandler<EncodableValue> > _ptr{_obj_stm_handle};
+
+    plugin->m_event_channel->SetStreamHandler(move(_ptr));
+
+    // eventChannel->SetStreamHandler(
+    //     make_unique<StreamHandlerFunctions<EncodableValue> >(
+    //         [plugin_pointer = plugin.get()](
+    //             const EncodableValue *arguments,
+    //             unique_ptr<EventSink<EncodableValue> > &&events)
+    //         { return plugin_pointer->StreamHandleOnListen(arguments, std::move(events)); },
+    //         [plugin_pointer = plugin.get()](const EncodableValue *arguments)
+    //         {
+    //           return plugin_pointer->StreamHandleOnCancel(arguments);
+    //         }));
 
     registrar->AddPlugin(move(plugin));
   }
@@ -241,7 +293,7 @@ namespace
     else if (method_call.method_name().compare("start") == 0)
     {
 
-      const auto *arguments = std::get<EncodableMap>(method_call.arguments());
+      const auto *arguments = std::get_if<EncodableMap>(method_call.arguments());
 
       int protocol = 0;
       char *ip = NULL;
@@ -250,11 +302,11 @@ namespace
       char *password = NULL;
       char *cert = NULL;
 
-      auto it = arguments->find("PROTOCOL");
+      auto it = arguments->find(EncodableValue("PROTOCOL"));
 
       if (it != arguments->end())
       {
-        string &protocol_str = std::get<string>(it->second);
+        string protocol_str = std::get<string>(it->second);
 
         if (protocol_str.compare("UDP") == 0)
         {
@@ -278,14 +330,14 @@ namespace
         }
       }
 
-      it = arguments->find("SRV_IP");
+      it = arguments->find(EncodableValue("SRV_IP"));
 
       if (it != arguments->end())
       {
         ip = (char *)std::get<string>(it->second).c_str();
       }
 
-      it = arguments->find("SRV_PORT");
+      it = arguments->find(EncodableValue("SRV_PORT"));
 
       if (it != arguments->end())
       {
@@ -294,21 +346,21 @@ namespace
         port = atoi(port_str);
       }
 
-      it = arguments->find("USER_NAME");
+      it = arguments->find(EncodableValue("USER_NAME"));
 
       if (it != arguments->end())
       {
         user_name = (char *)std::get<string>(it->second).c_str();
       }
 
-      it = arguments->find("PASSWORD");
+      it = arguments->find(EncodableValue("PASSWORD"));
 
       if (it != arguments->end())
       {
         password = (char *)std::get<string>(it->second).c_str();
       }
 
-      it = arguments->find("CERT");
+      it = arguments->find(EncodableValue("CERT"));
 
       if (it != arguments->end())
       {

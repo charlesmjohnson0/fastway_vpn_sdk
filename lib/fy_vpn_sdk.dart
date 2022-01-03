@@ -67,15 +67,21 @@ class FyVpnSdk {
     return _sdk;
   }
 
+  StreamSubscription? eventSubscription;
+
   FyVpnSdk._internal() {
     debugPrint(' sdk init ...');
-    _eventChannel.receiveBroadcastStream().listen((event) {
-      debugPrint(' event channel recve : $event');
-      if (event > 0) {
-        _stateController.sink.add(fy_state_ext.valueOf(event));
-      } else if (event < 0) {
-        _errorController.sink.add(fy_error_ext.valueOf(event));
-      }
+
+    Future.delayed(const Duration(seconds: 2), () {
+      eventSubscription =
+          _eventChannel.receiveBroadcastStream().listen((event) {
+        debugPrint(' event channel recve : $event');
+        if (event > 0) {
+          _stateController.sink.add(fy_state_ext.valueOf(event));
+        } else if (event < 0) {
+          _errorController.sink.add(fy_error_ext.valueOf(event));
+        }
+      });
     });
   }
 
