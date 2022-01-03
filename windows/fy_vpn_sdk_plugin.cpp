@@ -77,7 +77,7 @@ namespace
   private:
     unique_ptr<EventSink<T> > m_sink;
 
-  }
+  };
 
   class FyVpnSdkPlugin : public Plugin
   {
