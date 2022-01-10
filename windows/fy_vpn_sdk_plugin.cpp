@@ -24,7 +24,9 @@
 
 #include <thread>
 
-#include "client_win.h"
+#include "win_tun.h"
+#include "client.h"
+#include "log.h"
 
 using namespace flutter;
 using namespace std;
@@ -32,9 +34,88 @@ using namespace std;
 namespace
 {
 
-  fy_return_code state_on_change(fy_client_t *client, fy_state_e state);
-  fy_return_code on_error(fy_client_t *client, int err);
-  void worker_run(fy_client_t *client);
+  static ssize_t _tun_read(win_tun_t *tun, uint8_t *buf, size_t length)
+  {
+    fy_client_t *cli = (fy_client_t *)win_tun_get_context(tun);
+
+    if (length > cli->tun_mtu)
+    {
+      fy_log_error("client tun read length to larger, max : %d, read : %d",
+                   cli->tun_mtu,
+                   length);
+    }
+    else if (buf[0] >> 4 == 4) /* ipv4 */
+    {
+      fy_log_debug("client win tun read packet: ");
+
+      fy_log_print_packet(buf, length);
+
+      fy_client_tun_on_read(cli, buf, length);
+    }
+    else
+    {
+      fy_log_debug("unsupported packet type ,dropped ...");
+    }
+
+    return (ssize_t)length;
+  }
+
+  static fy_return_code tun_config_ipv4(fy_client_t *cli, fy_network_config_ipv4_t *config_ipv4)
+  {
+    FyVpnSdkPlugin *plugin = (FyVpnSdkPlugin *)cli->data;
+
+    plugin->tun = win_tun_create(config_ipv4->local_ip, config_ipv4->netmask, config_ipv4->dns, config_ipv4->mtu);
+
+    if (!plugin->tun)
+    {
+      fy_log_error("config win tun failed !");
+
+      return FY_ERR_CONFIG_IPV4;
+    }
+
+    //win tun start
+    win_tun_set_on_read(plugin->tun, &_tun_read);
+
+    cli->tun_mtu = config_ipv4->mtu;
+
+    win_tun_set_context(plugin->tun, cli);
+
+    win_tun_start(cli->loop, plugin->tun);
+
+    return FY_SUCCESS;
+  }
+
+  static ssize_t tun_write(fy_client_t *cli, uint8_t buf, size_t length)
+  {
+    FyVpnSdkPlugin *plugin = (FyVpnSdkPlugin *)cli->data;
+
+    return win_tun_write(plugin->tun, buf, length);
+  }
+
+  fy_return_code state_on_change(fy_client_t *client, fy_state_e state)
+  {
+
+    FyVpnSdkPlugin *plugin = (FyVpnSdkPlugin *)client->data;
+
+    plugin->send_event(fy_get_state(client));
+
+    return FY_SUCCESS;
+  }
+
+  fy_return_code on_error(fy_client_t *client, int err)
+  {
+
+    FyVpnSdkPlugin *plugin = (FyVpnSdkPlugin *)client->data;
+
+    plugin->send_event(err);
+
+    return FY_SUCCESS;
+  }
+
+  void worker_run(fy_client_t *client)
+  {
+    fy_run(client);
+  }
 
   template <typename T = EncodableValue>
 
@@ -63,6 +144,8 @@ namespace
 
       this->m_sink = move(events);
 
+      win_tun_init();
+
       return nullptr;
     }
 
@@ -71,12 +154,13 @@ namespace
 
       this->m_sink.release();
 
+      win_tun_clean();
+
       return nullptr;
     }
 
   private:
     unique_ptr<EventSink<T> > m_sink;
-
   };
 
   class FyVpnSdkPlugin : public Plugin
@@ -110,41 +194,31 @@ namespace
         const MethodCall<EncodableValue> &method_call,
         unique_ptr<MethodResult<EncodableValue> > result);
 
-    // unique_ptr<StreamHandlerError<EncodableValue> > StreamHandleOnListen(
-    //     const EncodableValue *arguments,
-    //     unique_ptr<EventSink<EncodableValue> > &&events)
-    // {
-
-    //   this->eventSinkPtr = std::move(events);
-
-    //   return nullptr;
-    // }
-
-    // unique_ptr<StreamHandlerError<EncodableValue> > StreamHandleOnCancel(const EncodableValue *arguments)
-    // {
-
-    //   this->eventSinkPtr.release();
-
-    //   return nullptr;
-    // }
-
     int start(int protocol, const char *ip, int port, const char *user_name, const char *password, const char *cert)
     {
-      if (this->cli)
+      this->stop();
+
+      size_t cert_len = 0;
+
+      if (cert)
       {
-        fy_stop(this->cli);
+        cert_len = strlen(cert) + 1;
       }
 
-      this->cli = fy_start(protocol, ip, port, user_name, password, cert);
+      this->cli = fy_client_create(protocol, ip, port, user_name, password, (uint8_t *)cert, cert_len);
 
       if (this->cli)
       {
 
         this->cli->data = this;
 
-        fy_set_on_state_change_cb(this->cli, &state_on_change);
+        fy_client_set_config_ipv4_cb(this->cli, &tun_config_ipv4);
 
-        fy_set_on_error_cb(this->cli, &on_error);
+        fy_client_set_pier_on_read_cb(this->cli, &tun_write);
+
+        fy_client_set_state_on_change_cb(this->cli, &state_on_change);
+
+        fy_client_set_on_err_cb(this->cli, &on_error);
 
         thread t(&worker_run, this->cli);
 
@@ -158,45 +232,35 @@ namespace
 
     int stop()
     {
-      return fy_stop(this->cli);
+      if (this->tun)
+      {
+        win_tun_stop(this->tun);
+
+        win_tun_destroy(this->tun);
+
+        this->tun = NULL;
+      }
+
+      if (this->cli)
+      {
+        fy_client_stop(this->cli);
+
+        fy_destroy(client);
+
+        this->cli = NULL;
+      }
+
+      return 0;
     }
 
     fy_client_t *cli = NULL;
+    win_tun_t *tun = NULL;
     int error = 0;
     int state = 0;
     // unique_ptr<EventSink<EncodableValue> > eventSinkPtr;
     unique_ptr<MethodChannel<EncodableValue> > m_method_channel;
     unique_ptr<EventChannel<EncodableValue> > m_event_channel;
   };
-
-  fy_return_code state_on_change(fy_client_t *client, fy_state_e state)
-  {
-
-    FyVpnSdkPlugin *plugin = (FyVpnSdkPlugin *)client->data;
-
-    plugin->send_event(fy_get_state(client));
-
-    return FY_SUCCESS;
-  }
-
-  fy_return_code on_error(fy_client_t *client, int err)
-  {
-
-    FyVpnSdkPlugin *plugin = (FyVpnSdkPlugin *)client->data;
-
-    plugin->send_event(err);
-
-    return FY_SUCCESS;
-  }
-
-  void worker_run(fy_client_t *client)
-  {
-    // fy_client_t *client = (fy_client_t *)arg;
-
-    fy_run(client);
-
-    fy_destroy(client);
-  }
 
   // static
   void FyVpnSdkPlugin::RegisterWithRegistrar(
@@ -280,11 +344,14 @@ namespace
     }
     else if ((method_call.method_name().compare("prepare") == 0) || (method_call.method_name().compare("prepared") == 0))
     {
-      result->Success(EncodableValue(fy_init() == 0));
+      result->Success(EncodableValue(win_tun_init() == 0));
     }
     else if (method_call.method_name().compare("getState") == 0)
     {
-      result->Success(EncodableValue(fy_get_state(cli)));
+      int state = fy_client_get_state_int(cli);
+
+      //TODO c++ enum to int
+      result->Success(EncodableValue(state));
     }
     else if (method_call.method_name().compare("getError") == 0)
     {
