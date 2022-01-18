@@ -82,6 +82,7 @@ namespace
   class FyVpnSdkPlugin : public Plugin
   {
   public:
+    win_tun_t *tun = NULL;
     static void RegisterWithRegistrar(PluginRegistrarWindows *registrar);
 
     FyVpnSdkPlugin();
@@ -103,7 +104,7 @@ namespace
     int stop();
 
     fy_client_t *cli = NULL;
-    win_tun_t *tun = NULL;
+
     int error = 0;
     int state = 0;
     // unique_ptr<EventSink<EncodableValue> > eventSinkPtr;
@@ -162,7 +163,7 @@ namespace
     return FY_SUCCESS;
   }
 
-  static ssize_t tun_write(fy_client_t *cli, uint8_t buf, size_t length)
+  static ssize_t tun_write(fy_client_t *cli, uint8_t *buf, size_t length)
   {
     FyVpnSdkPlugin *plugin = (FyVpnSdkPlugin *)cli->data;
 
@@ -174,7 +175,7 @@ namespace
 
     FyVpnSdkPlugin *plugin = (FyVpnSdkPlugin *)client->data;
 
-    plugin->send_event(fy_get_state(client));
+    plugin->send_event(fy_client_get_state_int(client));
 
     return FY_SUCCESS;
   }
@@ -191,7 +192,7 @@ namespace
 
   void worker_run(fy_client_t *client)
   {
-    fy_run(client);
+    fy_client_run(client);
   }
 
   void FyVpnSdkPlugin::send_event(int event)
@@ -223,7 +224,7 @@ namespace
     {
       fy_client_stop(this->cli);
 
-      fy_destroy(client);
+      fy_client_destroy(this->cli);
 
       this->cli = NULL;
     }
@@ -242,7 +243,7 @@ namespace
       cert_len = strlen(cert) + 1;
     }
 
-    this->cli = fy_client_create(protocol, ip, port, user_name, password, (uint8_t *)cert, cert_len);
+    this->cli = fy_client_create((fy_conn_protocol_e)protocol, ip, port, user_name, password, (uint8_t *)cert, cert_len);
 
     if (this->cli)
     {
