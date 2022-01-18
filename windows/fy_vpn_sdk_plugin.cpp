@@ -391,15 +391,15 @@ namespace
         }
         else if (protocol_str.compare("TLS") == 0)
         {
-          protocol = 3; //FY_CONN_PROTOCOL_TLS; // 3
+          protocol = 4; //FY_CONN_PROTOCOL_TLS; // 4
         }
         else if (protocol_str.compare("DTLS") == 0)
         {
-          protocol = 4; //FY_CONN_PROTOCOL_DTLS; // 4
+          protocol = 3; //FY_CONN_PROTOCOL_DTLS; // 3
         }
         else
         {
-          protocol = 4; //FY_CONN_PROTOCOL_DTLS;
+          protocol = 3; //FY_CONN_PROTOCOL_DTLS;
         }
       }
 
