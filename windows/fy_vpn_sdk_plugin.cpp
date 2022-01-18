@@ -34,6 +34,83 @@ using namespace std;
 namespace
 {
 
+  template <typename T = EncodableValue>
+  class FyVpnSdkPluginStreamHandler : public StreamHandler<T>
+  {
+
+  public:
+    FyVpnSdkPluginStreamHandler() = default;
+
+    virtual ~FyVpnSdkPluginStreamHandler() = default;
+
+    void send(int event)
+    {
+      if (uint64_t(this) == 0xddddddddddddddddul)
+        return;
+
+      if (m_sink.get())
+      {
+        m_sink.get()->Success(EncodableValue(event));
+      }
+    }
+
+  protected:
+    unique_ptr<StreamHandlerError<T> > OnListenInternal(const T *arguments, unique_ptr<EventSink<EncodableValue> > &&events) override
+    {
+
+      this->m_sink = move(events);
+
+      win_tun_init();
+
+      return nullptr;
+    }
+
+    unique_ptr<StreamHandlerError<T> > OnCancelInternal(const T *arguments) override
+    {
+
+      this->m_sink.release();
+
+      win_tun_clean();
+
+      return nullptr;
+    }
+
+  private:
+    unique_ptr<EventSink<T> > m_sink;
+  };
+
+  class FyVpnSdkPlugin : public Plugin
+  {
+  public:
+    static void RegisterWithRegistrar(PluginRegistrarWindows *registrar);
+
+    FyVpnSdkPlugin();
+
+    virtual ~FyVpnSdkPlugin();
+
+    FyVpnSdkPluginStreamHandler<> *m_handler = nullptr;
+
+    void send_event(int event);
+
+  private:
+    // Called when a method is called on this plugin"s channel from Dart.
+    void HandleMethodCall(
+        const MethodCall<EncodableValue> &method_call,
+        unique_ptr<MethodResult<EncodableValue> > result);
+
+    int start(int protocol, const char *ip, int port, const char *user_name, const char *password, const char *cert);
+
+    int stop();
+
+    fy_client_t *cli = NULL;
+    win_tun_t *tun = NULL;
+    int error = 0;
+    int state = 0;
+    // unique_ptr<EventSink<EncodableValue> > eventSinkPtr;
+    unique_ptr<MethodChannel<EncodableValue> > m_method_channel;
+    unique_ptr<EventChannel<EncodableValue> > m_event_channel;
+  };
+
   static ssize_t _tun_read(win_tun_t *tun, uint8_t *buf, size_t length)
   {
     fy_client_t *cli = (fy_client_t *)win_tun_get_context(tun);
@@ -117,150 +194,78 @@ namespace
     fy_run(client);
   }
 
-  template <typename T = EncodableValue>
-
-  class FyVpnSdkPluginStreamHandler : public StreamHandler<T>
+  void FyVpnSdkPlugin::send_event(int event)
   {
-
-  public:
-    FyVpnSdkPluginStreamHandler() = default;
-
-    virtual ~FyVpnSdkPluginStreamHandler() = default;
-
-    void send(int event)
+    if (event >= 0)
     {
-      if (uint64_t(this) == 0xddddddddddddddddul)
-        return;
-
-      if (m_sink.get())
-      {
-        m_sink.get()->Success(EncodableValue(event));
-      }
+      this->state = event;
+    }
+    else
+    {
+      this->error = event;
     }
 
-  protected:
-    unique_ptr<StreamHandlerError<T> > OnListenInternal(const T *arguments, unique_ptr<EventSink<EncodableValue> > &&events) override
-    {
+    this->m_handler->send(event);
+  }
 
-      this->m_sink = move(events);
-
-      win_tun_init();
-
-      return nullptr;
-    }
-
-    unique_ptr<StreamHandlerError<T> > OnCancelInternal(const T *arguments) override
-    {
-
-      this->m_sink.release();
-
-      win_tun_clean();
-
-      return nullptr;
-    }
-
-  private:
-    unique_ptr<EventSink<T> > m_sink;
-  };
-
-  class FyVpnSdkPlugin : public Plugin
+  int FyVpnSdkPlugin::stop()
   {
-  public:
-    static void RegisterWithRegistrar(PluginRegistrarWindows *registrar);
-
-    FyVpnSdkPlugin();
-
-    virtual ~FyVpnSdkPlugin();
-
-    FyVpnSdkPluginStreamHandler<> *m_handler = nullptr;
-
-    void send_event(int event)
+    if (this->tun)
     {
-      if (event >= 0)
-      {
-        this->state = event;
-      }
-      else
-      {
-        this->error = event;
-      }
+      win_tun_stop(this->tun);
 
-      this->m_handler->send(event);
+      win_tun_destroy(this->tun);
+
+      this->tun = NULL;
     }
 
-  private:
-    // Called when a method is called on this plugin"s channel from Dart.
-    void HandleMethodCall(
-        const MethodCall<EncodableValue> &method_call,
-        unique_ptr<MethodResult<EncodableValue> > result);
-
-    int start(int protocol, const char *ip, int port, const char *user_name, const char *password, const char *cert)
+    if (this->cli)
     {
-      this->stop();
+      fy_client_stop(this->cli);
 
-      size_t cert_len = 0;
+      fy_destroy(client);
 
-      if (cert)
-      {
-        cert_len = strlen(cert) + 1;
-      }
-
-      this->cli = fy_client_create(protocol, ip, port, user_name, password, (uint8_t *)cert, cert_len);
-
-      if (this->cli)
-      {
-
-        this->cli->data = this;
-
-        fy_client_set_config_ipv4_cb(this->cli, &tun_config_ipv4);
-
-        fy_client_set_pier_on_read_cb(this->cli, &tun_write);
-
-        fy_client_set_state_on_change_cb(this->cli, &state_on_change);
-
-        fy_client_set_on_err_cb(this->cli, &on_error);
-
-        thread t(&worker_run, this->cli);
-
-        t.detach();
-
-        return 0;
-      }
-
-      return -1;
+      this->cli = NULL;
     }
 
-    int stop()
+    return 0;
+  }
+
+  int FyVpnSdkPlugin::start(int protocol, const char *ip, int port, const char *user_name, const char *password, const char *cert)
+  {
+    this->stop();
+
+    size_t cert_len = 0;
+
+    if (cert)
     {
-      if (this->tun)
-      {
-        win_tun_stop(this->tun);
+      cert_len = strlen(cert) + 1;
+    }
 
-        win_tun_destroy(this->tun);
+    this->cli = fy_client_create(protocol, ip, port, user_name, password, (uint8_t *)cert, cert_len);
 
-        this->tun = NULL;
-      }
+    if (this->cli)
+    {
 
-      if (this->cli)
-      {
-        fy_client_stop(this->cli);
+      this->cli->data = this;
 
-        fy_destroy(client);
+      fy_client_set_config_ipv4_cb(this->cli, &tun_config_ipv4);
 
-        this->cli = NULL;
-      }
+      fy_client_set_pier_on_read_cb(this->cli, &tun_write);
+
+      fy_client_set_state_on_change_cb(this->cli, &state_on_change);
+
+      fy_client_set_on_err_cb(this->cli, &on_error);
+
+      thread t(&worker_run, this->cli);
+
+      t.detach();
 
       return 0;
     }
 
-    fy_client_t *cli = NULL;
-    win_tun_t *tun = NULL;
-    int error = 0;
-    int state = 0;
-    // unique_ptr<EventSink<EncodableValue> > eventSinkPtr;
-    unique_ptr<MethodChannel<EncodableValue> > m_method_channel;
-    unique_ptr<EventChannel<EncodableValue> > m_event_channel;
-  };
+    return -1;
+  }
 
   // static
   void FyVpnSdkPlugin::RegisterWithRegistrar(
@@ -348,10 +353,10 @@ namespace
     }
     else if (method_call.method_name().compare("getState") == 0)
     {
-      int state = fy_client_get_state_int(cli);
+      int stateInt = fy_client_get_state_int(cli);
 
       //TODO c++ enum to int
-      result->Success(EncodableValue(state));
+      result->Success(EncodableValue(stateInt));
     }
     else if (method_call.method_name().compare("getError") == 0)
     {
