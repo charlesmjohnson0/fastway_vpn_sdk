@@ -99,6 +99,16 @@ namespace
 
     void tun_start(win_tun_t *tun);
 
+    ssize_t tun_write(uint8_t *buf, size_t length)
+    {
+      if (this->tun)
+      {
+        return win_tun_write(this->tun, buf, length);
+      }
+
+      return -1;
+    }
+
   private:
     // Called when a method is called on this plugin"s channel from Dart.
     void HandleMethodCall(
@@ -191,7 +201,7 @@ namespace
   {
     FyVpnSdkPlugin *plugin = (FyVpnSdkPlugin *)cli->data;
 
-    return win_tun_write(plugin->tun, buf, length);
+    return plugin->tun_write(buf, length);
   }
 
   fy_return_code state_on_change(fy_client_t *client, fy_state_e state)
