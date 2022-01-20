@@ -61,6 +61,11 @@ namespace
       this->m_sink = move(events);
 
       win_tun_init();
+#ifdef DEBUG
+      fy_log_set_level(1);
+#else
+      fy_log_set_level(5);
+#endif
 
       return nullptr;
     }
