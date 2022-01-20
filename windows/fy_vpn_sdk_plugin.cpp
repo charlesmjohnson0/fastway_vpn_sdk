@@ -99,11 +99,13 @@ namespace
 
     void send_event(int event);
 
+#pragma warning(disable : 4458)
     void tun_start(win_tun_t *tun)
     {
       this->tun = tun;
       this->win_tun_thread = thread(&tun_run, tun);
     }
+// #pragma warning(default : 4458)
 
     ssize_t tun_write(uint8_t *buf, size_t length)
     {
