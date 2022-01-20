@@ -87,7 +87,6 @@ namespace
   class FyVpnSdkPlugin : public Plugin
   {
   public:
-    win_tun_t *tun = NULL;
     static void RegisterWithRegistrar(PluginRegistrarWindows *registrar);
 
     FyVpnSdkPlugin();
@@ -97,6 +96,8 @@ namespace
     FyVpnSdkPluginStreamHandler<> *m_handler = nullptr;
 
     void send_event(int event);
+
+    void tun_start(win_tun_t *tun);
 
   private:
     // Called when a method is called on this plugin"s channel from Dart.
@@ -109,6 +110,7 @@ namespace
     int stop();
 
     fy_client_t *cli = NULL;
+    win_tun_t *tun = NULL;
 
     int error = 0;
     int state = 0;
@@ -162,9 +164,9 @@ namespace
   {
     FyVpnSdkPlugin *plugin = (FyVpnSdkPlugin *)cli->data;
 
-    plugin->tun = win_tun_create(config_ipv4->local_ip, config_ipv4->netmask, config_ipv4->dns, config_ipv4->mtu);
+    win_tun_t *tun = win_tun_create(config_ipv4->local_ip, config_ipv4->netmask, config_ipv4->dns, config_ipv4->mtu);
 
-    if (!plugin->tun)
+    if (!tun)
     {
       fy_log_error("config win tun failed !");
 
@@ -172,15 +174,15 @@ namespace
     }
 
     //win tun start
-    win_tun_set_on_read(plugin->tun, &_tun_read);
+    win_tun_set_on_read(tun, &_tun_read);
 
     cli->tun_mtu = config_ipv4->mtu;
 
-    win_tun_set_context(plugin->tun, cli);
+    win_tun_set_context(tun, cli);
 
-    win_tun_start(cli->loop, plugin->tun);
+    win_tun_start(cli->loop, tun);
 
-    plugin->win_tun_thread = thread(&tun_run, plugin->tun);
+    plugin->tun_start(tun);
 
     return FY_SUCCESS;
   }
@@ -256,6 +258,13 @@ namespace
     }
 
     return 0;
+  }
+
+  void FyVpnSdkPlugin::tun_start(win_tun_t *tun)
+  {
+    this->tun = tun;
+
+    this->win_tun_thread = thread(&tun_run, tun);
   }
 
   int FyVpnSdkPlugin::start(int protocol, const char *ip, int port, const char *user_name, const char *password, const char *cert)
