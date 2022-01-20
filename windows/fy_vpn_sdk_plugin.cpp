@@ -112,6 +112,8 @@ namespace
 
     int error = 0;
     int state = 0;
+    thread cli_thread;
+    thread win_tun_thread;
     // unique_ptr<EventSink<EncodableValue> > eventSinkPtr;
     unique_ptr<MethodChannel<EncodableValue> > m_method_channel;
     unique_ptr<EventChannel<EncodableValue> > m_event_channel;
@@ -143,6 +145,19 @@ namespace
     return (ssize_t)length;
   }
 
+  static void tun_run(win_tun_t *tun)
+  {
+    while (win_tun_alive(tun))
+    {
+      int ret = win_tun_send_readable_single(tun);
+
+      if (ret < 0)
+      {
+        break;
+      }
+    }
+  }
+
   static fy_return_code tun_config_ipv4(fy_client_t *cli, fy_network_config_ipv4_t *config_ipv4)
   {
     FyVpnSdkPlugin *plugin = (FyVpnSdkPlugin *)cli->data;
@@ -164,6 +179,8 @@ namespace
     win_tun_set_context(plugin->tun, cli);
 
     win_tun_start(cli->loop, plugin->tun);
+
+    plugin->win_tun_thread = thread(&tun_run, plugin->tun);
 
     return FY_SUCCESS;
   }
@@ -220,6 +237,8 @@ namespace
     {
       win_tun_stop(this->tun);
 
+      this->win_tun_thread.join();
+
       win_tun_destroy(this->tun);
 
       this->tun = NULL;
@@ -228,6 +247,8 @@ namespace
     if (this->cli)
     {
       fy_client_stop(this->cli);
+
+      this->cli_thread.join();
 
       fy_client_destroy(this->cli);
 
@@ -263,9 +284,9 @@ namespace
 
       fy_client_set_on_err_cb(this->cli, &on_error);
 
-      thread t(&worker_run, this->cli);
-
-      t.detach();
+      this->cli_thread = thread(&worker_run, this->cli);
+      // thread t(&worker_run, this->cli);
+      // t.detach();
 
       return 0;
     }
