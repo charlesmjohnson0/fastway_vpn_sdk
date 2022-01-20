@@ -34,6 +34,8 @@ using namespace std;
 namespace
 {
 
+  static void tun_run(win_tun_t *tun);
+
   template <typename T = EncodableValue>
   class FyVpnSdkPluginStreamHandler : public StreamHandler<T>
   {
@@ -97,7 +99,11 @@ namespace
 
     void send_event(int event);
 
-    void tun_start(win_tun_t *tun);
+    void tun_start(win_tun_t *tun)
+    {
+      this->tun = tun;
+      this->win_tun_thread = thread(&tun_run, tun);
+    }
 
     ssize_t tun_write(uint8_t *buf, size_t length)
     {
@@ -197,7 +203,7 @@ namespace
     return FY_SUCCESS;
   }
 
-  static ssize_t tun_write(fy_client_t *cli, uint8_t *buf, size_t length)
+  static ssize_t tun_write_cb(fy_client_t *cli, uint8_t *buf, size_t length)
   {
     FyVpnSdkPlugin *plugin = (FyVpnSdkPlugin *)cli->data;
 
@@ -270,12 +276,12 @@ namespace
     return 0;
   }
 
-  void FyVpnSdkPlugin::tun_start(win_tun_t *tun)
-  {
-    this->tun = tun;
+  // void FyVpnSdkPlugin::tun_start(win_tun_t *tun)
+  // {
+  //   this->tun = tun;
 
-    this->win_tun_thread = thread(&tun_run, tun);
-  }
+  //   this->win_tun_thread = thread(&tun_run, tun);
+  // }
 
   int FyVpnSdkPlugin::start(int protocol, const char *ip, int port, const char *user_name, const char *password, const char *cert)
   {
@@ -297,7 +303,7 @@ namespace
 
       fy_client_set_config_ipv4_cb(this->cli, &tun_config_ipv4);
 
-      fy_client_set_pier_on_read_cb(this->cli, &tun_write);
+      fy_client_set_pier_on_read_cb(this->cli, &tun_write_cb);
 
       fy_client_set_state_on_change_cb(this->cli, &state_on_change);
 
