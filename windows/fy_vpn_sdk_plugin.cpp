@@ -105,7 +105,7 @@ namespace
       this->tun = tun;
       this->win_tun_thread = thread(&tun_run, tun);
     }
-// #pragma warning(default : 4458)
+    // #pragma warning(default : 4458)
 
     ssize_t tun_write(uint8_t *buf, size_t length)
     {
@@ -258,10 +258,6 @@ namespace
       win_tun_stop(this->tun);
 
       this->win_tun_thread.join();
-
-      win_tun_destroy(this->tun);
-
-      this->tun = NULL;
     }
 
     if (this->cli)
@@ -273,6 +269,13 @@ namespace
       fy_client_destroy(this->cli);
 
       this->cli = NULL;
+    }
+    
+    if (this->tun)
+    {
+      win_tun_destroy(this->tun);
+
+      this->tun = NULL;
     }
 
     return 0;
