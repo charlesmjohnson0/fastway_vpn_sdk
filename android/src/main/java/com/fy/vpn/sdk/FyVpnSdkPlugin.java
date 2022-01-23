@@ -2,10 +2,13 @@ package com.fy.vpn.sdk;
 
 import static android.app.Activity.RESULT_OK;
 
-import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
+import android.content.ServiceConnection;
+import android.os.Handler;
+import android.os.IBinder;
+import android.os.Looper;
 
 
 import androidx.annotation.NonNull;
@@ -86,18 +89,20 @@ public class FyVpnSdkPlugin implements FlutterPlugin, MethodCallHandler, EventCh
                 result.success(prepared == null);
                 break;
             case "getState":
-                result.success(this.state.ordinal());
+                result.success(vpnGetState().ordinal());
                 break;
             case "getError":
                 result.success(error);
                 break;
             case "start":
                 Map<String, String> parameters = (Map<String, String>) call.arguments;
-                FyVpnService.startVpnService(this.activityPluginBinding.getActivity(), parameters);
+//                FyVpnService.startVpnService(this.activityPluginBinding.getActivity(), parameters);
+                vpnStart(parameters);
                 result.success(true);
                 break;
             case "stop":
-                FyVpnService.stopVpnService(this.activityPluginBinding.getActivity());
+//                FyVpnService.stopVpnService(this.activityPluginBinding.getActivity());
+                vpnStop();
                 result.success(true);
                 break;
             default:
@@ -105,51 +110,141 @@ public class FyVpnSdkPlugin implements FlutterPlugin, MethodCallHandler, EventCh
         }
     }
 
-    private BroadcastReceiver receiver = null;
-    private StateEnum state = StateEnum.NONE;
+    public static final String PROTOCOL = "PROTOCOL";
+    public static final String SRV_IP = "SRV_IP";
+    public static final String SRV_PORT = "SRV_PORT";
+    public static final String USER_NAME = "USER_NAME";
+    public static final String PASSWORD = "PASSWORD";
+    public static final String CERT = "CERT";
     private int error = 0;
+    private FyVpnService vpnService = null;
 
+    protected Handler mainHandler = new Handler(Looper.getMainLooper());
 
-    protected void registerReceiver() {
+    public void sendEventOnMainThread(final int event) {
 
-        unregisterReceiver();
-
-        this.receiver = new BroadcastReceiver() {
+        mainHandler.post(new Runnable() {
             @Override
-            public void onReceive(Context context, Intent intent) {
-
-                if (eventSink != null) {
-
-                    int stateInt = intent.getIntExtra("state", 0);
-
-                    if (stateInt > 0) {
-                        state = StateEnum.valueOf(stateInt);
-                        eventSink.success(state.ordinal());
-                    }
-
-                    int errorInt = intent.getIntExtra("error", 0);
-
-                    if (errorInt < 0) {
-                        error = errorInt;
-                        eventSink.success(error);
-                    }
-                }
+            public void run() {
+                eventSink.success(event);
             }
-        };
-
-        IntentFilter filter = new IntentFilter();
-
-        filter.addAction(FyVpnService.FY_VPN_SERVICE_BROADCAST_ACTION);
-
-        activityPluginBinding.getActivity().registerReceiver(receiver, filter);
+        });
     }
 
-    protected void unregisterReceiver() {
-        if (receiver != null) {
-            activityPluginBinding.getActivity().unregisterReceiver(receiver);
-            receiver = null;
+    protected FyVpnService.OnStateChangeCallback vpnStateChangeCallback = new FyVpnService.OnStateChangeCallback() {
+        @Override
+        public void onStateChange(int stateInt) {
+            sendEventOnMainThread(stateInt);
+        }
+
+        @Override
+        public void onError(int errorCode) {
+            error = errorCode;
+            sendEventOnMainThread(errorCode);
+        }
+    };
+
+    private final ServiceConnection vpnServiceConnection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName componentName, IBinder iBinder) {
+            FyVpnService.Binder binder = (FyVpnService.Binder) iBinder;
+            vpnService = binder.getService();
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName componentName) {
+            vpnService = null;
+        }
+    };
+
+    protected void vpnStart(Map<String, String> parameters) {
+
+        String protocol = parameters.get(PROTOCOL);
+        String serverIp = parameters.get(SRV_IP);
+        String serverPort = parameters.get(SRV_PORT);
+        String username = parameters.get(USER_NAME);
+        String password = parameters.get(PASSWORD);
+        String cert = parameters.get(CERT);
+
+        try {
+            vpnService.setOnStateChangeCallback(vpnStateChangeCallback);
+            vpnService.start(protocol, serverIp, serverPort, username, password, cert);
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
+
+    protected void vpnStop() {
+        vpnService.stop();
+    }
+
+    protected StateEnum vpnGetState() {
+        return vpnService.getState();
+    }
+
+    protected void vpnServiceConnect() {
+
+//        registerReceiver();
+
+        if (vpnService != null) {
+            vpnServiceDisconnect();
+        }
+
+        Intent intent = new Intent(this.activityPluginBinding.getActivity(), FyVpnService.class);
+
+        this.activityPluginBinding.getActivity().bindService(intent, vpnServiceConnection, Context.BIND_AUTO_CREATE);
+    }
+
+    protected void vpnServiceDisconnect() {
+
+//        unregisterReceiver();
+
+        if (vpnService != null) {
+            this.activityPluginBinding.getActivity().unbindService(vpnServiceConnection);
+        }
+    }
+
+//    private BroadcastReceiver receiver = null;
+//    protected void registerReceiver() {
+//
+//        unregisterReceiver();
+//
+//        this.receiver = new BroadcastReceiver() {
+//            @Override
+//            public void onReceive(Context context, Intent intent) {
+//
+//                if (eventSink != null) {
+//
+//                    int stateInt = intent.getIntExtra("state", 0);
+//
+//                    if (stateInt > 0) {
+//                        state = StateEnum.valueOf(stateInt);
+//                        eventSink.success(state.ordinal());
+//                    }
+//
+//                    int errorInt = intent.getIntExtra("error", 0);
+//
+//                    if (errorInt < 0) {
+//                        error = errorInt;
+//                        eventSink.success(error);
+//                    }
+//                }
+//            }
+//        };
+//
+//        IntentFilter filter = new IntentFilter();
+//
+//        filter.addAction(FyVpnService.FY_VPN_SERVICE_BROADCAST_ACTION);
+//
+//        activityPluginBinding.getActivity().registerReceiver(receiver, filter);
+//    }
+//
+//    protected void unregisterReceiver() {
+//        if (receiver != null) {
+//            activityPluginBinding.getActivity().unregisterReceiver(receiver);
+//            receiver = null;
+//        }
+//    }
 
     @Override
     public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {
@@ -170,22 +265,22 @@ public class FyVpnSdkPlugin implements FlutterPlugin, MethodCallHandler, EventCh
     @Override
     public void onAttachedToActivity(@NonNull ActivityPluginBinding binding) {
         this.activityPluginBinding = binding;
-        registerReceiver();
+        vpnServiceConnect();
     }
 
     @Override
     public void onDetachedFromActivityForConfigChanges() {
-        unregisterReceiver();
+        vpnServiceDisconnect();
     }
 
     @Override
     public void onReattachedToActivityForConfigChanges(@NonNull ActivityPluginBinding binding) {
         this.activityPluginBinding = binding;
-        registerReceiver();
+        vpnServiceConnect();
     }
 
     @Override
     public void onDetachedFromActivity() {
-        unregisterReceiver();
+        vpnServiceDisconnect();
     }
 }
