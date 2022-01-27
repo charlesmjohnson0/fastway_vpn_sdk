@@ -42,7 +42,12 @@ extension fy_state_ext on fy_state {
 }
 
 enum fy_error {
+  fy_err_out_of_memory,
+  fy_err_internel,
   fy_err_connection,
+  fy_err_offline,
+  fy_err_tls,
+  fy_err_tun,
   fy_err_auth_deny,
   fy_err_unknown,
 }
@@ -50,10 +55,34 @@ enum fy_error {
 extension fy_error_ext on fy_error {
   static fy_error valueOf(int index) {
     switch (index) {
+      case -1:
+        return fy_error.fy_err_out_of_memory;
       case -7:
         return fy_error.fy_err_auth_deny;
+      case -2:
+      case -3:
+      case -4:
+      case -5:
+      case -6:
+      case -8:
+        return fy_error.fy_err_internel;
+      case -100:
+      case -101:
       case -102:
+      case -103:
+      case -104:
         return fy_error.fy_err_connection;
+      case -105:
+        return fy_error.fy_err_offline;
+      case -200:
+      case -201:
+        return fy_error.fy_err_tls;
+      case -400:
+      case -401:
+      case -402:
+      case -403:
+      case -404:
+        return fy_error.fy_err_tun;
       default:
         return fy_error.fy_err_unknown;
     }
