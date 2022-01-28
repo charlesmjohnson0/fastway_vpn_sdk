@@ -99,6 +99,10 @@ namespace
 
     void send_event(int event);
 
+    int start(int protocol, const char *ip, int port, const char *user_name, const char *password, const char *cert);
+
+    int stop();
+
 #pragma warning(disable : 4458)
     void tun_start(win_tun_t *tun)
     {
@@ -122,10 +126,6 @@ namespace
     void HandleMethodCall(
         const MethodCall<EncodableValue> &method_call,
         unique_ptr<MethodResult<EncodableValue> > result);
-
-    int start(int protocol, const char *ip, int port, const char *user_name, const char *password, const char *cert);
-
-    int stop();
 
     fy_client_t *cli = NULL;
     win_tun_t *tun = NULL;
@@ -272,7 +272,7 @@ namespace
 
       this->cli = NULL;
     }
-    
+
     if (this->tun)
     {
       win_tun_destroy(this->tun);
