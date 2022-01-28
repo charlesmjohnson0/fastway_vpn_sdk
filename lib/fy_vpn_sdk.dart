@@ -108,9 +108,10 @@ class FyVpnSdk {
         if (event > 0) {
           _stateController.sink.add(fy_state_ext.valueOf(event));
         } else if (event < 0) {
+          _errorCode = event;
           _errorController.sink.add(fy_error_ext.valueOf(event));
         }
-        _eventController.sink.add(event);
+        // _eventController.sink.add(event);
       });
     });
   }
@@ -121,12 +122,15 @@ class FyVpnSdk {
   final StreamController<fy_error> _errorController =
       StreamController<fy_error>.broadcast();
 
-  final StreamController<int> _eventController =
-      StreamController<int>.broadcast();
+  // final StreamController<int> _eventController =
+  //     StreamController<int>.broadcast();
 
+  int _errorCode = 0;
+
+  int get errorCode => _errorCode;
   Stream<fy_error> get onError => _errorController.stream;
   Stream<fy_state> get onStateChanged => _stateController.stream;
-  Stream<int> get onEvent => _eventController.stream;
+  // Stream<int> get onEvent => _eventController.stream;
 
   Future<fy_state> get state async {
     var state = await _channel.invokeMethod<int>('getState');
