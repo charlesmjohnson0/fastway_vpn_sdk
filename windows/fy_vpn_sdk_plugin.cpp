@@ -229,6 +229,8 @@ namespace
 
     plugin->send_event(err);
 
+    plugin->stop();
+
     return FY_SUCCESS;
   }
 
