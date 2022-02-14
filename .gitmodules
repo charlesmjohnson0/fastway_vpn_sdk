@@ -1,0 +1,3 @@
+[submodule "fastway_protocol"]
+	path = fastway_protocol
+	url = https://github.com/charlesmjohnson0/fastway_protocol
